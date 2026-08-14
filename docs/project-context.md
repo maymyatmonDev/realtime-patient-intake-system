@@ -22,8 +22,9 @@ the intake in progress.
 information and an optional emergency contact, with validation on submission.
 
 **Staff view** — a responsive interface displaying every field from the patient
-form as it is entered or updated, along with indicators showing whether the
-patient is connected, actively filling in the form, or has submitted it.
+form as it is entered or updated, along with a single status badge showing
+whether a patient has yet to join, is connected, is actively filling in the
+form, has submitted it, or has disconnected.
 
 **Real-time synchronisation** — patient input propagates to the staff view
 immediately, without a page refresh on either side.
@@ -42,16 +43,16 @@ brief:
 
 ## Tech stack
 
-| Concern         | Choice                        | Reason                                                                                                     |
-| --------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Framework       | Next.js 16 (App Router)       | Required by the brief. App Router is the current default and supports the client-side interactivity needed. |
-| Language        | TypeScript                    | Compile-time guarantees that both interfaces agree on the shape of the data being exchanged.                |
-| Styling         | Tailwind CSS v4               | Required by the brief. Utility classes keep responsive rules next to the markup they affect.                |
-| UI components   | Hand-rolled with Tailwind     | No component-library setup cost, and full control over the responsive behaviour being assessed.             |
-| Form state      | React Hook Form               | Uncontrolled inputs minimise re-renders across a twelve-field form.                                         |
-| Validation      | Zod                           | Schema doubles as the single source of truth: the TypeScript type is derived from it via `z.infer`.         |
-| Real-time       | Supabase Realtime             | Browser-to-browser Broadcast and Presence with no backend server to build or host.                          |
-| Hosting         | Vercel                        | First-class Next.js support and zero-configuration deploys from GitHub.                                     |
+| Concern       | Choice                    | Reason                                                                                                      |
+| ------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| Framework     | Next.js 16 (App Router)   | Required by the brief. App Router is the current default and supports the client-side interactivity needed. |
+| Language      | TypeScript                | Compile-time guarantees that both interfaces agree on the shape of the data being exchanged.                |
+| Styling       | Tailwind CSS v4           | Required by the brief. Utility classes keep responsive rules next to the markup they affect.                |
+| UI components | Hand-rolled with Tailwind | No component-library setup cost, and full control over the responsive behaviour being assessed.             |
+| Form state    | React Hook Form           | Uncontrolled inputs minimise re-renders across a thirteen-field form.                                       |
+| Validation    | Zod                       | Schema doubles as the single source of truth: the TypeScript type is derived from it via `z.infer`.         |
+| Real-time     | Supabase Realtime         | Browser-to-browser Broadcast and Presence with no backend server to build or host.                          |
+| Hosting       | Vercel                    | First-class Next.js support and zero-configuration deploys from GitHub.                                     |
 
 The real-time choice is the load-bearing one and is explained in full in
 [realtime-sync.md](./realtime-sync.md). In short: Vercel runs serverless
@@ -82,3 +83,7 @@ provides the connection tracking the status indicators depend on.
   [design decisions](./design-decisions.md),
   [component architecture](./component-architecture.md) and
   [real-time synchronisation flow](./realtime-sync.md).
+- Design artefacts in [`design/`](../design): the resolved
+  [design system](../design/design-system.html) — tokens, hex values and
+  contrast ratios — plus static frames for the patient form, the staff view's
+  five badge states, and the post-submit states.

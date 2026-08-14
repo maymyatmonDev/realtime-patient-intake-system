@@ -95,7 +95,7 @@ before the first field.
 
 ### Structure
 
-**Single scrolling page, no stepper.** Twelve fields across three sections is
+**Single scrolling page, no stepper.** Thirteen fields across three sections is
 short enough that a multi-step wizard adds ceremony without reducing effort.
 A stepper would also weaken the demo, since staff could only ever see the
 fields the patient had reached. Three section headings, unnumbered — numbering
@@ -226,10 +226,10 @@ field rows carry it instead. This is a structural fix, not a decorative one —
 tinting or striping rows would compete with the change highlight below.
 
 **Change highlight.** When a value updates, its row background tints briefly and
-fades over ~1 second. With twelve fields, staff would not otherwise notice which
-one moved. Two guardrails: the value text itself never animates — sliding or
-jumping text hurts legibility, which is the whole point — and the fade respects
-`prefers-reduced-motion`, under which the value simply changes.
+fades over ~1 second. With thirteen fields, staff would not otherwise notice
+which one moved. Two guardrails: the value text itself never animates —
+sliding or jumping text hurts legibility, which is the whole point — and the
+fade respects `prefers-reduced-motion`, under which the value simply changes.
 
 **Last updated.** A relative timestamp near the badge ("updated 4s ago"). Without
 it, a frozen screen is indistinguishable from an idle patient — which becomes
@@ -279,8 +279,8 @@ who has opened the wrong window first.
 ### Accessibility
 
 The status badge sits in an `aria-live="polite"` region so its transitions are
-announced. Field values do **not** — twelve fields updating on a debounce would
-produce constant interruption. The badge is the signal; the fields are
+announced. Field values do **not** — thirteen fields updating on a debounce
+would produce constant interruption. The badge is the signal; the fields are
 reference.
 
 ---
