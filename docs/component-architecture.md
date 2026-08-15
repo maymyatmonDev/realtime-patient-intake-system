@@ -1,12 +1,10 @@
 # Component Architecture
 
-How the two views are composed, who owns which piece of state, and how a
-keystroke reaches the other screen.
+How the two views are composed, and who owns which piece of state.
 
 The UI spec is [design-decisions.md](./design-decisions.md); the event contract
-is [realtime-sync.md](./realtime-sync.md). This document is the layer between
-them: it maps those decisions onto components, and nothing here overrides
-either.
+is [realtime-sync.md](./realtime-sync.md). This document maps those onto
+components. It does not override either.
 
 ---
 
@@ -93,140 +91,8 @@ than on "which field changed last". Editing the same field twice in a row
 produces the same field name, so a name would not re-trigger the tint; a new
 timestamp always does.
 
----
-
-## Flow 1 — patient types
-
-```text
-onChange
-   │
-   ├─► React Hook Form                        stores the value, no re-render
-   │
-   └─► usePatientSync.sendFieldChange(field, value)
-            │  debounce ~250ms, keyed per field name
-            ▼
-       channel.send  field-change { field, value, at }
-            │
-            ▼  Supabase Realtime
-       useStaffSync
-            ├─ values[field] = value
-            ├─ fieldUpdatedAt[field] = at
-            └─ lastChangeAt = at
-            ▼
-       RecordRow  new value, tint fades ~1s      StatusBadge  Filling in
-```
-
-Never gated on validity — the staff view stays live while the patient is still
-mid-word. Debouncing per field name is what stops a fast tab from dropping the
-field just left behind.
-
-## Flow 2 — patient submits
-
-```text
-IntakeActions (submit)
-   │  handleSubmit → Zod (incl. emergency-contact superRefine)
-   ├─ invalid ─► focus first failing field, aria-invalid, error text
-   └─ valid   ─► sendSubmit(values) ─► submit { values, at }
-                     │                        │
-                     ▼                        ▼
-              PatientIntake            useStaffSync
-              submitted = true         submittedAt = at
-              banner, readOnly,        values frozen
-              reset visible            badge latches Submitted
-                                       timestamp → "Submitted at 14:32"
-                                       empty fields → "Not provided"
-```
-
-The full values ride along with `submit` rather than relying on staff having
-received every prior `field-change`. The snapshot is the only copy of the
-record, so it must not depend on nothing having been missed.
-
-## Flow 3 — staff joins mid-intake
-
-```text
-StaffLiveView mounts
-   └─► presence.track({ role: "staff", … })
-             │
-             ▼
-       usePatientSync sees a presence join with role "staff"
-             │  send immediately; ignore further snapshots for ~500ms
-             ▼
-       getSnapshot()  ← supplied by PatientIntake: getValues() + submitted
-             │
-             ▼
-       state-snapshot { values, submitted, submittedAt, at }
-             │
-             ▼
-       useStaffSync  fills every field at once, badge honours `submitted`
-```
-
-`getSnapshot` is passed **into** the hook as a callback and held in a ref. The
-hook needs the current values at an unpredictable moment, and a ref means new
-values never cause a re-subscribe.
-
-## Flow 4 — start a new intake
-
-```text
-IntakeActions   tap → sendSessionReset()
-                          │                    │
-                          ▼                    ▼
-                   PatientIntake         patient leaves list + session
-                   form.reset()          list row disappears
-                   return to begin       open detail keeps the record
-                                         and shows "This intake has ended."
-```
-
-Reset lives on the patient device. Staff never sends, so `useStaffSync` has no
-`send` in its return type at all — the constraint is enforced by the API shape,
-not by convention.
-
----
-
-## Hook contracts
-
-```ts
-// hooks/usePatientSync.ts
-function usePatientSync(opts: {
-  active: boolean;
-  sessionId: string | null;
-  getSnapshot: () => StateSnapshotPayload;
-  getListPresence: () => ListPresencePayload;
-}): {
-  sendFieldChange: (field: FieldName, value: string) => void;
-  sendSubmit: (values: IntakeForm) => void;
-  sendSessionReset: () => void;
-};
-
-// hooks/useStaffSync.ts  — receive only, by design
-function useStaffSync(sessionId: string | null): {
-  connection: "connected" | "reconnecting";
-  badge: BadgeState;
-  values: Partial<IntakeForm>;
-  fieldUpdatedAt: Partial<Record<FieldName, number>>;
-  lastUpdatedAt: number | null;
-  submittedAt: number | null;
-  ended: boolean;
-  now: number;
-};
-
-// hooks/useStaffList.ts  — receive only; Presence, no broadcasts
-function useStaffList(): {
-  sessions: ListSession[];
-  ready: boolean;
-  now: number;
-};
-```
-
-`useStaffSync` and `useStaffList` run a 1s interval so the badge can decay
-from **Filling in** to **Connected** on its own. Without it the badge would
-sit on "Filling in" until the next message happened to arrive — it decays on
-a timer, not on an event.
-
-**The hooks deliberately do not share a base hook.** Supabase requires every
-`.on()` listener to be registered before `.subscribe()`, so a shared base would
-have to take listener-injection callbacks — more indirection than the channel
-setup it would save. Hooks that each read straight down are easier to follow
-and easier to debug.
+Event sequences (type, submit, late join, reset, refresh) live in
+[realtime-sync.md](./realtime-sync.md).
 
 ---
 
@@ -251,11 +117,10 @@ their own label up by `name`:
 <FormField name="firstName" />           // label comes from FIELD_LABELS
 ```
 
-That is not shortening for its own sake. Flow 3 makes the mirroring load-bearing
-— "check the date of birth" has to point at the same place on both screens — and
-a shared registry makes that true by construction instead of by remembering to
-edit two files. The patient form still writes its own JSX, so the three-across
-names, the paired short fields and the full-width address stay explicit.
+Both views read their labels and ordering from here, so "check the date of
+birth" points at the same place on both screens by construction. The patient
+form still writes its own JSX, so the three-across names, the paired short
+fields and the full-width address stay explicit.
 
 **`lib/badge-state.ts`** — `resolveBadgeState(facts, now)`, the five ordered
 rules from [realtime-sync.md](./realtime-sync.md) as a pure function. Order is
@@ -263,21 +128,3 @@ the whole point (Submitted outranks Disconnected; Waiting requires never having
 seen a patient), and rules that matter in a specific order are far easier to
 read as one list than as conditionals spread through a component.
 
----
-
-## Two things worth naming
-
-**`AppHeader` takes a slot, not staff props.** Its type is a discriminated
-union:
-
-```ts
-type AppHeaderProps =
-  | { variant: "patient" }
-  | { variant: "staff"; right?: ReactNode; backHref?: string; title?: string };
-```
-
-The patient variant renders its own caption ("Visible to the front desk") —
-plain text, not a chip. The staff list uses the default title; the detail
-route passes a back link and the patient's display name. This keeps the
-shared header free of any import from `components/staff/`, so the
-dependency direction in [project-structure.md](./project-structure.md) holds.

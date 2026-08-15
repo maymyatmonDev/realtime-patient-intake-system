@@ -41,7 +41,7 @@ state alone: no broadcast events, and join/leave is free.
 **Session** — `intake-session:{sessionId}`. The existing `field-change` /
 `submit` / `session-reset` / `state-snapshot` contract, unchanged, scoped to
 one intake. `sessionId` is a `crypto.randomUUID()` created when the patient
-taps Begin intake. It lives in React state only; a refresh starts a new
+taps Begin Intake. It lives in React state only; a refresh starts a new
 session.
 
 Staff subscribe to the list (no track) and to one session channel when they
@@ -150,7 +150,7 @@ record, so it should not depend on no message having been missed.
 
 ### `session-reset`
 
-Sent when the patient taps **Start new intake**.
+Sent when the patient taps **Start New Intake**.
 
 ```ts
 {
@@ -201,7 +201,7 @@ event. If that timestamp is within ~3s, the patient is filling in. This is why
 there is no keystroke-level typing event: the debounced field broadcast already
 carries the signal.
 
-A `state-snapshot` must not set that timestamp. Begin intake sends a snapshot of
+A `state-snapshot` must not set that timestamp. Begin Intake sends a snapshot of
 an empty form so a staff tab already open can go **Connected**; treating `at` as
 a field change would flash **Filling in** before anyone has typed. Snapshot `at`
 only updates the "last updated" clock.
@@ -270,7 +270,7 @@ patient-side persistence is an explicit non-goal.
 ## Observed behaviour
 
 - **Channel setup.** `createClient` lives in `lib/supabase.ts`. The patient
-  hook joins list + session while `active` (after Begin intake). Staff
+  hook joins list + session while `active` (after Begin Intake). Staff
   subscribe to the list always, and to one session when a row is open or
   prefetched. Broadcast is `{ self: false }` so a client never handles its
   own events.

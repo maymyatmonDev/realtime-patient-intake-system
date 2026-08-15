@@ -14,20 +14,19 @@ each one constrains the next:
 4. **Connection edges** — late join, disconnect, refresh
 5. **After submit** — what the session does next
 
-Layout, visual language and out-of-scope items follow at the end, since they
-apply across all five.
+Layout and visual language follow at the end, since they apply across all five.
 
 ---
 
 ## 1. Entry and navigation
 
 There is no extra landing URL. `/` is still the patient page. The form is
-hidden until they tap **Begin intake**, and the patient does not join the
+hidden until they tap **Begin Intake**, and the patient does not join the
 channel until that tap. Staff stay on **Waiting** while the tablet is only
 showing the intro.
 
 ```text
-Patient  →  /   Begin intake  →  fill form  →  submit  →  Start new intake
+Patient  →  /   Begin Intake  →  fill form  →  submit  →  Start New Intake
 Staff    →  /staff   list     →  /staff/[sessionId]  live record
 ```
 
@@ -57,8 +56,8 @@ accent mark. What differs:
 | Tab title  | Patient Intake                   | Front Desk — Live View | Front Desk — Live View       |
 
 The patient right side is **plain text**, not a chip. A pill that said "New
-intake" read as a start button, next to **Begin intake** and **Start new
-intake**. The caption is not tappable, and it restates the live-sync disclosure
+intake" read as a start button, next to **Begin Intake** and **Start New
+Intake**. The caption is not tappable, and it restates the live-sync disclosure
 in the chrome so it is visible before the form copy.
 
 A tinted staff-only strip and a dark staff-only strip were both tried and
@@ -82,12 +81,16 @@ The form does not open straight into fields. The begin screen is centered and
 does not say “below”, because the fields are not on screen yet:
 
 ```text
-H1        New patient intake
-Lead      When you are ready, start the form. It takes about two minutes.
-          Front desk staff will see your answers as you type, in case you
-          need help.
-Button    Begin intake
+Eyebrow   Clinic front desk
+H1        New Patient Intake          (accent colour, large)
+Subtitle  A short form so staff can help you as you go.
+Facts     About 2 minutes · Live with staff · 13 questions
+Button    Begin Intake                (pill)
 ```
+
+The three fact cards give the empty screen some structure without turning it
+into a marketing page. Live-with-staff is disclosed on a fact card before
+they tap, and again above the form once they begin.
 
 Once they begin, the form intro uses “complete your details below”. Required
 fields are marked with a red asterisk.
@@ -101,9 +104,9 @@ carried it as a footnote under the submit button, where a patient would only
 read it after entering everything. It is consent-adjacent copy, so it belongs
 before the first field.
 
-**Begin intake.** The fields stay hidden until this tap. That is also when the
+**Begin Intake.** The fields stay hidden until this tap. That is also when the
 patient client joins the channel. Opening `/` alone does not count as
-Connected. **Start new intake** returns to this step and leaves the channel.
+Connected. **Start New Intake** returns to this step and leaves the channel.
 
 ### Structure
 
@@ -289,10 +292,10 @@ resolving any chip.
 
 ### Empty state
 
-Before any patient connects, `/staff` shows a centred message — "Waiting for a
-patient to begin" — with a smaller line noting that the patient form is at the
-root URL. Never a blank page, and it quietly orients a reviewer who has opened
-the wrong window first. Once a session exists, the list heading is "Active
+Before any patient connects, `/staff` shows a centred message — "Waiting for
+a patient" — with a smaller line noting that the patient form is at the root
+URL. Never a blank page, and it quietly orients a reviewer who has opened the
+wrong window first. Once a session exists, the list heading is "Active
 intakes".
 
 ### Accessibility
@@ -379,7 +382,7 @@ person. The design supports that loop.
 
 1. Submit passes validation and broadcasts `submit`.
 2. The intro is replaced by a success card: check, _"Details submitted"_,
-   _"Please return the device to the front desk"_, and a **Start new intake**
+   _"Please return the device to the front desk"_, and a **Start New Intake**
    button sized to its label (not full width — that overpowered the message).
    After submit the page scrolls to this card.
 3. **The form stays visible**, every field `readOnly` on a muted surface. Hiding
@@ -390,7 +393,7 @@ person. The design supports that loop.
    after submit it becomes a read-only text input showing the chosen label —
    same muted surface, still in the tab order.
 4. The submit button is replaced by a plain "Submitted" label.
-5. **Start new intake** lives on the success card, not under the form. The
+5. **Start New Intake** lives on the success card, not under the form. The
    locked form stays below for review.
 
 **Reset lives on the patient device, not the staff view.** Two reasons. Every
@@ -402,7 +405,7 @@ sits on the desk between intakes, so whoever taps the button is almost always
 the staff member handing it to the next person — the control belongs to the
 device, not to a job title.
 
-One tap on **Start new intake** broadcasts `session-reset`, leaves both
+One tap on **Start New Intake** broadcasts `session-reset`, leaves both
 channels, and returns to the begin screen. A two-tap confirm was tried and
 dropped. The next patient gets a new `sessionId` and a new row on the staff
 list.
@@ -416,7 +419,7 @@ list.
 2. Empty optional fields switch to "Not provided".
 3. `session-reset` or disconnect while staff is on the detail route → do **not**
    auto-redirect. Keep the record and show "This intake has ended." with the
-   back link. A new Begin intake is a different session, not a second list
+   back link. A new Begin Intake is a different session, not a second list
    under the same card.
 
 ---
@@ -442,11 +445,13 @@ restrained. All three are short fields and form a natural group.
 Clinic front desk, not a marketing site. The resolved tokens live in the design
 system document; this section records the rules behind them.
 
-- **One accent hue, split by job.** Not by taste. A bright stop is the primary
-  button fill only, a dark stop carries the header mark, card top rule, section
-  dots and focus rings, and two pale stops carry the header strip and the success
-  banner. Only **one** bright-accent element appears per screen, which is why the
-  submit button needs no extra size or weight to be found.
+- **One accent hue, split by job.** Not by taste. The bright stop (`emerald-400`)
+  is the primary button fill. The card top rule on the patient form and the
+  staff record is **4px `emerald-500`** — same stripe on both, so the two views
+  still feel like one object. The dark stop (`emerald-600`) carries the header
+  mark, section dots and focus rings. Two pale stops carry the header strip and
+  the success banner. The submit button is still the only bright *control* on
+  the form.
 - **Status hue is the one place colour carries meaning** rather than role: grey /
   green / amber / blue, on the staff view only. Never on the patient view.
 - **Accent and status hue must not collide.** The accent sits in the same family
@@ -466,37 +471,12 @@ system document; this section records the rules behind them.
 - **Spacing** — Tailwind's 4px/8px scale only. The contrast that matters is
   16px between fields against 40px before a section heading; that ratio is what
   makes the form scan as three chunks rather than one long list.
-- **Radius** — `rounded-md` on controls, buttons and nested cards; `rounded-xl`
-  on page cards. Pills only for the staff status chip.
+- **Radius** — `rounded-md` on controls and nested cards; `rounded-xl` on
+  page cards and the begin-screen fact cards; `rounded-full` on primary
+  actions and the staff status chip.
 - **Focus** — a visible ring on every interactive element. Keyboard users must
   be able to complete the form without a mouse.
 - **Motion** — the staff row change tint only, ~1s, behind
   `prefers-reduced-motion`. The Connected dot is static — a pulse competed
   with Filling in. No spinners, no transitions on value text.
 - **One theme.** No dark mode.
-
----
-
-## Open questions
-
-Deliberately unresolved, to be settled in real use rather than guessed at now:
-
-- **Header distinction.** Both views currently share one strip, separated only by
-  title and by the kind of element on the right. This is accepted for now. If the
-  two windows prove confusable in real side-by-side use, **enlarge the staff
-  title** rather than re-tinting the strip — a tinted and a dark staff header
-  were both tried and rejected.
-- **Accent against status green.** The accent family neighbours the "Connected"
-  hue. The white-fill Connected chip is the mitigation; verify it on a real
-  screen against the header strip before committing.
-
----
-
-## Out of scope for the UI
-
-- Multi-step wizard or stepper
-- Cross-navigation between patient and staff views
-- Staff dashboard, charts, or submission history
-- Authentication screens
-- Dark mode, language switcher, or settings
-- Persistence of form state across a patient-side refresh

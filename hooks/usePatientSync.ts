@@ -127,13 +127,7 @@ export function usePatientSync({
           joinedAt: Date.now(),
         })
         .then(() => {
-          const staffAlreadyHere = Object.values(session.presenceState()).some(
-            (presences) =>
-              presences.some((presence) => {
-                const parsed = presenceSchema.safeParse(presence);
-                return parsed.success && parsed.data.role === "staff";
-              }),
-          );
+          const staffAlreadyHere = staffIsPresent();
 
           if (staffAlreadyHere) {
             queueSnapshot();

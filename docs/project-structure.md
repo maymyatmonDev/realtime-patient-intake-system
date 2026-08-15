@@ -26,7 +26,7 @@ components/
     PatientIntake.tsx         client root: form instance + channel + session state
     IntakeForm.tsx            the <form>: three sections, fields, submit
     FormField.tsx             labelled control — text, select, textarea, errors
-    IntakeActions.tsx         submit states + "Start new intake"
+    IntakeActions.tsx         submit states + "Start New Intake"
   staff/                      used only by /staff
     StaffWorkspace.tsx        staff layout — keeps list + session sockets
     StaffList.tsx             /staff list — one row per list Presence
@@ -95,36 +95,9 @@ Four questions, in order. The first "yes" is the answer.
   `PatientIntake.tsx`, `StaffWorkspace.tsx`, `StaffList.tsx`,
   `StaffLiveView.tsx`, and the hooks. Children they render are already client
   code; repeating the directive there adds noise and no meaning.
+- **Pages are server shells** — `metadata` plus one client component, so each
+  route can have its own tab title.
 - **Colours come from stock Tailwind names** (`emerald-400`, `zinc-50`, …).
   No custom `@theme` token layer to keep in sync with a second source of truth.
 
----
-
-## Why `app/` holds so little
-
-Each `page.tsx` is a server component that does two things: export `metadata`
-and render one client component.
-
-That split is not ceremony — the two routes need **different tab titles**
-("Patient Intake" against "Front Desk — Live View", per flow 1), and a file
-marked `"use client"` cannot export `metadata`. Keeping pages as server shells
-gets the tab titles for free and keeps the routing layer readable at a glance.
-
----
-
-## Deliberately absent
-
-- **No `index.ts` barrel files.** They hide which file a symbol came from, for
-  no gain — direct imports are already short with the `@/` alias.
-- **No `types/` folder.** Every shared type is inferred from a Zod schema with
-  `z.infer` and exported beside it in `intake-schema.ts`. A separate types
-  folder would invite hand-written duplicates that drift.
-- **No `utils/` folder.** Vague names collect junk. Helpers live in the `lib/`
-  file that owns the concept — badge rules in `badge-state.ts`, nothing else.
-- **No `providers/` or global store.** State ownership is settled in
-  [component-architecture.md](./component-architecture.md); nothing needs to
-  cross the two client roots.
-- **No test setup.** Out of scope for the brief. `lib/badge-state.ts` is a pure
-  function specifically so it is the one piece that could be tested later
-  without any harness.
 

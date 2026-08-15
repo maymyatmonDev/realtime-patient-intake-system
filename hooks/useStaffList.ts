@@ -9,7 +9,7 @@ import {
 import { LIST_CHANNEL_NAME } from "@/lib/realtime";
 import { supabase } from "@/lib/supabase";
 
-export type ListSession = ListPresencePayload & {
+type ListSession = ListPresencePayload & {
   badge: BadgeState;
 };
 

@@ -70,7 +70,7 @@ Open two browser windows side by side:
 - [localhost:3000](http://localhost:3000) — the patient form
 - [localhost:3000/staff](http://localhost:3000/staff) — the front desk list
 
-Tap **Begin intake** on the patient window. A row appears on `/staff`. Open
+Tap **Begin Intake** on the patient window. A row appears on `/staff`. Open
 it, then type — values land on the record, the changed row tints briefly, and
 the badge moves between **Connected**, **Filling in** and **Submitted**. A
 second patient window gets its own row; the two records do not mix.
@@ -79,18 +79,19 @@ second patient window gets its own row; the two records do not mix.
 
 ## Known limitations
 
-These follow from decisions recorded in
-[docs/project-context.md](docs/project-context.md), not from unfinished work.
+These are decisions, not unfinished work.
 
 - **A patient refresh clears the form.** Nothing is persisted on the patient
-  side, so a refresh starts a new session. Patient-side persistence is an
-  explicit non-goal.
+  side, so a refresh starts a new session.
 - **First join waits on the socket.** Opening `/staff` or a new row has to
   subscribe to a channel. Typing on a record that is already open is immediate.
-- **Nothing is stored.** Broadcast messages are ephemeral and there is no
-  database. A submitted record lives only on the screens currently open.
-- **No authentication.** `/staff` is open to anyone who knows the URL. Access
-  control for the staff view is out of scope.
+- **Nothing is stored.** Broadcast messages are ephemeral. There is no
+  submission history, and a submitted record lives only on screens currently
+  open.
+- **No authentication.** `/staff` is open to anyone who knows the URL.
+- **English UI only.** Preferred language is a form field, not a language
+  switcher.
+- **Demo data only.** The form is not meant to hold real patient records.
 
 ---
 
@@ -98,13 +99,13 @@ These follow from decisions recorded in
 
 These are in the app, not extras you have to imagine:
 
-- **Several patients at once** — each Begin intake gets its own session
+- **Several patients at once** — each Begin Intake gets its own session
   channel; `/staff` lists them from Presence on the list channel.
-- **Begin intake** — opening `/` does not join a channel. Staff stay on
+- **Begin Intake** — opening `/` does not join a channel. Staff stay on
   Waiting until the patient taps the button.
 - **Late-join snapshot** — a staff tab opened mid-form (or after submit)
   receives the current values in one payload, including the submitted flag.
-- **Ended sessions stay put** — Start new intake is a new row. An open
+- **Ended sessions stay put** — Start New Intake is a new row. An open
   record does not redirect; it keeps the values under "This intake has ended."
 - **Reconnecting vs Disconnected** — a dropped staff socket shows an amber
   banner and dims the record; a patient leaving keeps the values at full
@@ -129,11 +130,7 @@ worth reading in this order:
 
 | Document                                                    | What it settles                                   |
 | ----------------------------------------------------------- | ------------------------------------------------- |
-| [project-context.md](docs/project-context.md)               | Purpose, scope, non-goals, tech-stack rationale   |
 | [design-decisions.md](docs/design-decisions.md)             | UI/UX across five flows — the authoritative spec  |
 | [realtime-sync.md](docs/realtime-sync.md)                   | Channel, Presence, events, badge resolution order |
 | [project-structure.md](docs/project-structure.md)           | Folder layout and where new code belongs          |
-| [component-architecture.md](docs/component-architecture.md) | Component trees, state ownership, data flow       |
-
-UI/UX decisions, including layout at different screen sizes, are in
-[docs/design-decisions.md](docs/design-decisions.md).
+| [component-architecture.md](docs/component-architecture.md) | Component trees, state ownership, shared modules  |

@@ -70,9 +70,7 @@ export function StatusBadge({
                   ? "bg-green-500"
                   : badge === "filling-in"
                     ? "bg-amber-500"
-                    : badge === "submitted"
-                      ? "bg-blue-500"
-                      : "bg-zinc-400"
+                    : "bg-blue-500"
             }`}
           />
         )}

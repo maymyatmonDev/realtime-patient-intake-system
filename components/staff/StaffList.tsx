@@ -26,12 +26,13 @@ export function StaffList() {
       <main className="mx-auto w-full max-w-4xl px-4 py-8 md:px-8">
         {!ready ? null : sessions.length === 0 ? (
           <div className="flex flex-col items-center py-20 text-center">
-            <h1 className="text-2xl font-semibold text-zinc-900">
-              Waiting for a patient to begin
+            <p className="text-sm tracking-wide text-emerald-700">Front desk</p>
+            <h1 className="mt-3 text-3xl font-semibold tracking-tight text-emerald-700 md:text-4xl">
+              Waiting for a patient
             </h1>
-            <p className="mt-2 max-w-md text-base text-zinc-600">
+            <p className="mt-4 max-w-md text-base leading-relaxed text-zinc-600">
               The patient form is at the root URL. Intakes appear here when they
-              tap Begin intake.
+              tap Begin Intake.
             </p>
           </div>
         ) : (

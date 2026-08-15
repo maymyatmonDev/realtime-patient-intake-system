@@ -31,7 +31,7 @@ export function IntakeForm({
   return (
     <form
       onSubmit={handleSubmit(onSubmit, focusFirstError)}
-      className="flex flex-col gap-10 rounded-xl border border-zinc-200 border-t-emerald-600 bg-white p-4 md:p-6"
+      className="flex flex-col gap-10 rounded-xl border border-zinc-200 border-t-4 border-t-emerald-500 bg-white p-4 md:p-6"
       noValidate
     >
       <section className="flex flex-col gap-4">

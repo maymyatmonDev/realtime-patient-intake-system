@@ -53,7 +53,7 @@ export const GENDER_OPTIONS = [
   { value: "prefer-not-to-say", label: "Prefer not to say" },
 ] as const;
 
-export const FIELD_NAMES = Object.keys(FIELD_LABELS) as FieldName[];
+const FIELD_NAMES = Object.keys(FIELD_LABELS) as FieldName[];
 
 export const TOTAL_FIELD_COUNT = FIELD_NAMES.length;
 

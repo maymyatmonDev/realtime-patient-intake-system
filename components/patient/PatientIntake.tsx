@@ -115,79 +115,110 @@ export function PatientIntake() {
 
   return (
     <FormProvider {...form}>
-      <AppHeader variant="patient" />
-      <main className="mx-auto w-full max-w-3xl px-4 py-8 md:px-8">
-        {submitted ? (
-          <div
-            ref={bannerRef}
-            tabIndex={-1}
-            role="status"
-            className="rounded-xl border border-emerald-300 bg-emerald-50 p-6 outline-none"
-          >
-            <div className="flex size-10 items-center justify-center rounded-full bg-emerald-400 text-lg font-semibold text-emerald-950">
-              ✓
-            </div>
-            <h1 className="mt-4 text-2xl font-semibold tracking-tight text-zinc-900">
-              Details submitted
-            </h1>
-            <p className="mt-2 text-base leading-relaxed text-zinc-600">
-              Please return the device to the front desk. You can still review
-              your answers below.
-            </p>
-            <div className="mt-6">
-              <ResetControl onReset={handleReset} />
-            </div>
-          </div>
-        ) : null}
-
-        {!started && !submitted ? (
-          <div className="flex flex-col items-center py-20 text-center">
-            <h1 className="text-2xl font-semibold text-zinc-900">
-              New patient intake
-            </h1>
-            <p className="mt-2 max-w-md text-base leading-relaxed text-zinc-600">
-              When you are ready, start the form. It takes about two minutes.
-              Front desk staff will see your answers as you type, in case you
-              need help.
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                setSessionId(crypto.randomUUID());
-                setStartedAt(Date.now());
-                setStarted(true);
-              }}
-              className="mt-8 cursor-pointer rounded-md bg-emerald-400 px-5 py-3 text-base font-semibold text-emerald-950 hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+      <div className="flex min-h-full flex-col">
+        <AppHeader variant="patient" />
+        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-8 md:px-8">
+          {submitted ? (
+            <div
+              ref={bannerRef}
+              tabIndex={-1}
+              role="status"
+              className="rounded-xl border border-emerald-300 bg-emerald-50 p-6 outline-none"
             >
-              Begin intake
-            </button>
-          </div>
-        ) : null}
-
-        {started ? (
-          <>
-            {!submitted ? (
-              <>
-                <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
-                  New patient intake
-                </h1>
-                <p className="mt-2 max-w-xl text-base leading-relaxed text-zinc-600">
-                  Please complete your details below. It takes about two
-                  minutes, and front desk staff can see your answers as you type
-                  in case you need help.
-                </p>
-              </>
-            ) : null}
-            <div className="mt-6">
-              <IntakeForm
-                submitted={submitted}
-                submitting={form.formState.isSubmitting}
-                onSubmit={handleValid}
-              />
+              <div className="flex size-10 items-center justify-center rounded-full bg-emerald-400 text-lg font-semibold text-emerald-950">
+                ✓
+              </div>
+              <h1 className="mt-4 text-2xl font-semibold tracking-tight text-zinc-900">
+                Details submitted
+              </h1>
+              <p className="mt-2 text-base leading-relaxed text-zinc-600">
+                Please return the device to the front desk. You can still review
+                your answers below.
+              </p>
+              <div className="mt-6">
+                <ResetControl onReset={handleReset} />
+              </div>
             </div>
-          </>
-        ) : null}
-      </main>
+          ) : null}
+
+          {!started && !submitted ? (
+            <div className="flex flex-1 flex-col items-center justify-center py-8 md:py-12 text-center">
+              <p className="text-sm tracking-wide text-emerald-700">
+                Clinic front desk
+              </p>
+              <h1 className="mt-3 text-4xl font-semibold tracking-tight text-emerald-700 md:text-5xl">
+                New Patient Intake
+              </h1>
+              <p className="mt-4 max-w-lg text-base text-zinc-800 md:text-lg">
+                A short form so staff can help you as you go.
+              </p>
+
+              <ul className="mt-7 md:mt-10 grid w-full max-w-xl grid-cols-1 gap-3 sm:grid-cols-3">
+                <li className="rounded-xl border border-emerald-100 bg-white px-4 py-4">
+                  <p className="text-sm font-semibold text-zinc-900">
+                    About 2 minutes
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    Short and straightforward
+                  </p>
+                </li>
+                <li className="rounded-xl border border-emerald-100 bg-white px-4 py-4">
+                  <p className="text-sm font-semibold text-zinc-900">
+                    Live with staff
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    They can help as you type
+                  </p>
+                </li>
+                <li className="rounded-xl border border-emerald-100 bg-white px-4 py-4">
+                  <p className="text-sm font-semibold text-zinc-900">
+                    13 questions
+                  </p>
+                  <p className="mt-1 text-sm text-zinc-600">
+                    Personal, contact, emergency
+                  </p>
+                </li>
+              </ul>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setSessionId(crypto.randomUUID());
+                  setStartedAt(Date.now());
+                  setStarted(true);
+                }}
+                className="mt-10 cursor-pointer rounded-full bg-emerald-400 px-8 py-3 text-base font-semibold text-emerald-950 hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+              >
+                Begin Intake
+              </button>
+            </div>
+          ) : null}
+
+          {started ? (
+            <>
+              {!submitted ? (
+                <>
+                  <h1 className="text-2xl font-semibold tracking-tight text-zinc-900 md:text-3xl">
+                    New Patient Intake
+                  </h1>
+                  <p className="mt-2 max-w-xl text-base leading-relaxed text-zinc-600">
+                    Please complete your details below. It takes about two
+                    minutes, and front desk staff can see your answers as you
+                    type in case you need help.
+                  </p>
+                </>
+              ) : null}
+              <div className="mt-6">
+                <IntakeForm
+                  submitted={submitted}
+                  submitting={form.formState.isSubmitting}
+                  onSubmit={handleValid}
+                />
+              </div>
+            </>
+          ) : null}
+        </main>
+      </div>
     </FormProvider>
   );
 }

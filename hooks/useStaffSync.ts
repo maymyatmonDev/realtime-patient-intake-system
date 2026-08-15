@@ -5,7 +5,6 @@ import { resolveBadgeState, type BadgeState } from "@/lib/badge-state";
 import {
   fieldChangeSchema,
   presenceSchema,
-  sessionResetSchema,
   stateSnapshotSchema,
   submitSchema,
   type FieldName,
@@ -137,10 +136,6 @@ export function useStaffSync(sessionId: string | null) {
       setSubmittedAt(parsed.data.at);
       setLastUpdatedAt(parsed.data.at);
       remember(parsed.data.values, parsed.data.at, parsed.data.at);
-    });
-
-    channel.on("broadcast", { event: REALTIME_EVENTS.SESSION_RESET }, ({ payload }) => {
-      sessionResetSchema.safeParse(payload);
     });
 
     channel.on("broadcast", { event: REALTIME_EVENTS.STATE_SNAPSHOT }, ({ payload }) => {
