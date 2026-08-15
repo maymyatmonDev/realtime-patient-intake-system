@@ -116,7 +116,5 @@ worth reading in this order:
 | [project-structure.md](docs/project-structure.md)           | Folder layout and where new code belongs          |
 | [component-architecture.md](docs/component-architecture.md) | Component trees, state ownership, data flow       |
 
-Resolved design tokens, hex values and contrast ratios live in
-[design/design-system.html](design/design-system.html), alongside static frames
-for the patient form, the staff view's five badge states, and the post-submit
-states.
+UI/UX decisions, including layout at different screen sizes, are in
+[docs/design-decisions.md](docs/design-decisions.md).

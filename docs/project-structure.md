@@ -23,24 +23,14 @@ components/
   patient/                    used only by /
     PatientIntake.tsx         client root: form instance + channel + session state
     IntakeForm.tsx            the <form>: three sections, fields, submit
-    FormSection.tsx           heading + accent dot + field grid
-    FieldWrapper.tsx          label, "Optional", error text, aria wiring
-    TextField.tsx             input — text, tel, email, date
-    SelectField.tsx           native select — gender only
-    TextAreaField.tsx         address
-    SubmitButton.tsx          three labels: Submit details / Submitting… / Submitted
-    SuccessBanner.tsx         post-submit banner
-    StartNewIntake.tsx        two-tap confirm reset
+    FormField.tsx             labelled control — text, select, textarea, errors
+    IntakeActions.tsx         submit states + two-tap "Start new intake"
   staff/                      used only by /staff
-    StaffLiveView.tsx         client root: channel + which body to show
-    PatientRecord.tsx         the live record card
-    RecordSection.tsx         section heading + rows
+    StaffLiveView.tsx         client root: waiting vs record, reconnecting strip
+    PatientRecord.tsx         the live record card — sections + rows
     RecordRow.tsx             one label/value row + change highlight
-    StatusBadge.tsx           the five badge states
-    LastUpdated.tsx           "updated 4s ago" / "Submitted at 14:32"
+    StatusBadge.tsx           five badge states + last-updated timestamp
     PreviousSubmission.tsx    the sunken block after a session reset
-    WaitingState.tsx          centred "Waiting for a patient to begin"
-    ReconnectingBanner.tsx    amber strip when the staff socket drops
 
 hooks/
   usePatientSync.ts           sends events, answers staff joins with a snapshot
@@ -51,7 +41,7 @@ lib/                          no React, no JSX
   realtime.ts                 channel name, event names, timings
   intake-schema.ts            Zod form schema + event payloads + all types
   intake-fields.ts            field labels, section order, gender options
-  status-badge.ts             resolveBadgeState() — pure, ordered rules
+  badge-state.ts              resolveBadgeState() — pure, ordered rules
 ```
 
 ---
@@ -100,8 +90,7 @@ Four questions, in order. The first "yes" is the answer.
 - **`"use client"` sits on the two client roots only** — `PatientIntake.tsx` and
   `StaffLiveView.tsx`. Everything they render is client code already; repeating
   the directive on each child adds noise and no meaning.
-- **Colours come from stock Tailwind names** (`emerald-400`, `zinc-50`, …), the
-  ones [design-system.html](../../design/design-system.html) already resolves.
+- **Colours come from stock Tailwind names** (`emerald-400`, `zinc-50`, …).
   No custom `@theme` token layer to keep in sync with a second source of truth.
 
 ---
@@ -126,11 +115,11 @@ gets the tab titles for free and keeps the routing layer readable at a glance.
   `z.infer` and exported beside it in `intake-schema.ts`. A separate types
   folder would invite hand-written duplicates that drift.
 - **No `utils/` folder.** Vague names collect junk. Helpers live in the `lib/`
-  file that owns the concept — badge rules in `status-badge.ts`, nothing else.
+  file that owns the concept — badge rules in `badge-state.ts`, nothing else.
 - **No `providers/` or global store.** State ownership is settled in
   [component-architecture.md](./component-architecture.md); nothing needs to
   cross the two client roots.
-- **No test setup.** Out of scope for the brief. `lib/status-badge.ts` is a pure
+- **No test setup.** Out of scope for the brief. `lib/badge-state.ts` is a pure
   function specifically so it is the one piece that could be tested later
   without any harness.
 

@@ -83,7 +83,3 @@ provides the connection tracking the status indicators depend on.
   [design decisions](./design-decisions.md),
   [component architecture](./component-architecture.md) and
   [real-time synchronisation flow](./realtime-sync.md).
-- Design artefacts in [`design/`](../design): the resolved
-  [design system](../design/design-system.html) — tokens, hex values and
-  contrast ratios — plus static frames for the patient form, the staff view's
-  five badge states, and the post-submit states.
