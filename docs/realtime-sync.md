@@ -118,7 +118,7 @@ record, so it should not depend on no message having been missed.
 
 ### `session-reset`
 
-Sent when the patient confirms **Start new intake**.
+Sent when the patient taps **Start new intake**.
 
 ```ts
 {
@@ -165,6 +165,11 @@ event. If that timestamp is within ~3s, the patient is filling in. This is why
 there is no keystroke-level typing event: the debounced field broadcast already
 carries the signal.
 
+A `state-snapshot` must not set that timestamp. Begin intake sends a snapshot of
+an empty form so a staff tab already open can go **Connected**; treating `at` as
+a field change would flash **Filling in** before anyone has typed. Snapshot `at`
+only updates the "last updated" clock.
+
 Because it decays on a timer rather than an event, the staff view needs an
 interval to re-evaluate it — otherwise the badge would sit on "Filling in" until
 the next message happened to arrive.
@@ -200,7 +205,7 @@ patient joins            → staff badge: Waiting → Connected
 patient types            → field-change (×n)     → Filling in, values populate
 patient idles ~3s        → (no event)            → Connected
 patient submits          → submit                → Submitted, values freeze
-patient starts new       → session-reset         → Connected, values move to
+patient starts new       → session-reset         → Waiting, values move to
                                                    "Previous submission"
 patient types            → field-change          → previous submission clears
 ```
@@ -226,19 +231,17 @@ persistence is an explicit non-goal.
 
 ---
 
-## Deferred until implementation
+## Observed behaviour
 
-To be completed once the system has been observed running:
-
-- **Channel setup** — `createClient` configuration, subscribe lifecycle, and
-  cleanup on unmount.
-- **Final timings.** The ~250ms debounce, ~3s decay and ~500ms snapshot debounce
-  are starting points chosen for feel, not measurements. They will be tuned with
-  both views open side by side, and this document updated to match.
-- **Reconnection behaviour.** Supabase reconnects automatically, but the exact
-  sequence of channel state callbacks — and therefore when the "Reconnecting…"
-  banner appears and clears — is easier to document after watching a real
-  disconnect.
-- **Presence leave latency.** How long Supabase takes to report a leave affects
-  how quickly the Disconnected badge appears; worth measuring before deciding
-  whether it needs smoothing.
+- **Channel setup.** `createClient` lives in `lib/supabase.ts`. Each hook
+  creates one channel, subscribes, tracks Presence on `SUBSCRIBED`, and calls
+  `removeChannel` on unmount. The patient hook only does this while `active`
+  (after Begin intake). Broadcast is `{ self: false }` so a client never
+  handles its own events.
+- **Timings.** Kept at 250ms per-field debounce, 500ms snapshot debounce, and
+  3s Filling-in decay after watching both views side by side.
+- **Reconnection.** Any subscribe status other than `SUBSCRIBED` shows the
+  staff "Reconnecting…" banner and dims the record to 75%. On resubscribe the
+  staff client tracks Presence again; the patient join-detect sends a snapshot.
+- **Presence leave.** Used as-is, no extra smoothing. Disconnected appears when
+  Supabase reports the patient leave.

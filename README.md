@@ -95,6 +95,24 @@ These follow from decisions recorded in
 
 ---
 
+## Beyond the brief
+
+These are in the app, not extras you have to imagine:
+
+- **Begin intake** — opening `/` does not join the channel. Staff stay on
+  Waiting until the patient taps the button.
+- **Late-join snapshot** — a staff tab opened mid-form (or after submit)
+  receives the current values in one payload, including the submitted flag.
+- **Previous submission** — Start new intake keeps the last record on the
+  staff screen until the next patient types.
+- **Reconnecting vs Disconnected** — a dropped staff socket shows an amber
+  banner and dims the record; a patient leaving keeps the values at full
+  strength under Disconnected.
+- **Conditional emergency contact** — the pair is optional, but filling one
+  field requires the other.
+
+---
+
 ## Deployment
 
 Deploys to Vercel with no configuration beyond the two environment variables

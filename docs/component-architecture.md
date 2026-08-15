@@ -17,8 +17,8 @@ app/page.tsx                        server — exports metadata, nothing else
 └── PatientIntake                   "use client"
     │                               owns: useForm, submitted, usePatientSync
     ├── AppHeader variant="patient"
-    ├── (intro: h1 · lead · "All fields required unless marked optional")
-    ├── (success banner)            when submitted — inline, one surface
+    ├── (intro: h1 · lead)
+    ├── (success banner + reset)    when submitted — reset stays outside the form
     ├── IntakeForm                  reads the form via useFormContext
     │   ├── section "Personal details"
     │   │   ├── FormField   firstName · middleName · lastName
@@ -32,13 +32,13 @@ app/page.tsx                        server — exports metadata, nothing else
     │   ├── section "Emergency contact"    nested quiet card
     │   │   └── FormField   emergencyName · emergencyRelationship
     │   └── (submit)                inside the <form> — from IntakeActions
-    └── (reset)                     outside the form — from IntakeActions
 ```
 
 Four files, not ten. A section heading is a few classes — it does not earn its
-own module. The three native controls share one `FormField` so label, "Optional",
-error text and `aria-*` stay in one place. Submit and the two-tap reset are one
-region in the design (the end of the form), so they share `IntakeActions`.
+own module. The three native controls share one `FormField` so label, required
+`*`, error text and `aria-*` stay in one place. Submit and reset share `IntakeActions`
+because they are the two session actions, even though they sit in different
+places on the page.
 
 `IntakeForm` still writes its own JSX for the grid — three-across names, paired
 short fields, full-width address — rather than generating the layout from a
@@ -51,7 +51,7 @@ app/staff/page.tsx                  server — exports metadata, nothing else
 └── StaffLiveView                   "use client"
     │                               owns: useStaffSync
     ├── AppHeader variant="staff"
-    │   └── right: StatusBadge      badge + "updated 4s ago" / "Submitted at"
+    │   └── right: StatusBadge      badge + "updated just now" / "1m ago" / "Submitted at"
     ├── (reconnecting strip)        when the staff socket is down
     └── body — one of:
         ├── (waiting)               badge = Waiting — centred invitation
@@ -67,9 +67,8 @@ is a heading plus rows, same as a form section: markup inside `PatientRecord`,
 not a module. The timestamp always sits next to the badge, so it lives in
 `StatusBadge`.
 
-`RecordRow` stays a file because the highlight is real local state: it keys
-off `updatedAt`, not the field name, so editing the same field twice still
-re-triggers the tint.
+`RecordRow` stays a file because the highlight keys off `updatedAt`, not the
+field name, so editing the same field twice still re-triggers the tint.
 
 `PreviousSubmission` stays a file because flow 5 separates live and previous
 five ways. Sharing `PatientRecord` or `RecordRow` would pull those lists back
@@ -92,15 +91,15 @@ because nothing has to cross between the two client roots.
 | Field values being typed         | React Hook Form  | Uncontrolled inputs; `PatientIntake` holds it    |
 | Validation errors                | React Hook Form  | From the Zod resolver                            |
 | `submitted` / `submittedAt`      | `PatientIntake`  | Drives banner, `readOnly`, reset visibility      |
-| "Confirm?" armed                 | `IntakeActions`  | Local, self-reverting — nobody else needs it     |
+| Reset click                      | `IntakeActions`  | Calls `onReset` — no extra confirm step          |
 | Channel + per-field debouncers   | `usePatientSync` | Refs, so re-renders never re-subscribe           |
 | Received values + per-field time | `useStaffSync`   | `Partial<IntakeForm>` plus a timestamp per field |
 | Badge state                      | `useStaffSync`   | Derived every tick via `resolveBadgeState()`     |
-| Row highlight                    | `RecordRow`      | Local effect on its own `updatedAt` prop         |
+| Row highlight                    | `RecordRow`      | Local state keyed on `updatedAt`                 |
 
 `useForm` lives in `PatientIntake` rather than in `IntakeForm` for one concrete
 reason: a `session-reset` has to call `form.reset()`, and the reset button sits
-**outside** the form (below it, per flow 5). Whoever owns the form instance must
+**outside** the form (under the success banner). Whoever owns the form instance must
 sit above both. Fields then reach it with `useFormContext()` instead of having
 `register` threaded through four levels.
 
@@ -183,8 +182,7 @@ values never cause a re-subscribe.
 ## Flow 4 — start a new intake
 
 ```text
-IntakeActions   tap 1 → "Confirm?"  (reverts after a few seconds)
-                tap 2 → sendSessionReset()
+IntakeActions   tap → sendSessionReset()
                           │                    │
                           ▼                    ▼
                    PatientIntake         useStaffSync
@@ -208,9 +206,9 @@ not by convention.
 ```ts
 // hooks/usePatientSync.ts
 function usePatientSync(opts: {
+  active: boolean;
   getSnapshot: () => StateSnapshotPayload;
 }): {
-  connection: "connected" | "reconnecting";
   sendFieldChange: (field: FieldName, value: string) => void;
   sendSubmit: (values: IntakeForm) => void;
   sendSessionReset: () => void;
@@ -285,8 +283,9 @@ type AppHeaderProps =
   | { variant: "staff"; right: ReactNode };
 ```
 
-The patient variant needs nothing — its right side is a static "New intake"
-chip. The staff variant is handed its badge and timestamp by `StaffLiveView`.
+The patient variant renders its own caption ("Visible to the front desk") —
+plain text, not a chip. The staff variant is handed its badge and timestamp by
+`StaffLiveView`.
 This keeps the shared header free of any import from `components/staff/`, so the
 dependency direction in [project-structure.md](./project-structure.md) holds.
 

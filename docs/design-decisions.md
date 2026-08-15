@@ -21,12 +21,14 @@ apply across all five.
 
 ## 1. Entry and navigation
 
-There is no landing page. The deployed root URL is the patient form. Staff open
-a separate route.
+There is no extra landing URL. `/` is still the patient page. The form is
+hidden until they tap **Begin intake**, and the patient does not join the
+channel until that tap. Staff stay on **Waiting** while the tablet is only
+showing the intro.
 
 ```text
-Patient  →  /         fill form  →  submit  →  form locks, success banner
-Staff    →  /staff    wait       →  watch live values  →  see Submitted
+Patient  →  /   Begin intake  →  fill form  →  submit  →  Start new intake
+Staff    →  /staff   Waiting  →  live values  →  Submitted  →  Waiting
 ```
 
 **No cross-links between the two views.** A "Staff" link on a patient-facing
@@ -47,18 +49,20 @@ views then lives in one file, which is what makes it cheap to change later.
 The strip itself is identical on both routes — the same brand tint, the same
 accent mark. Three things differ:
 
-|            | Patient (`/`)           | Staff (`/staff`)         |
-| ---------- | ----------------------- | ------------------------ |
-| Title      | Patient Intake          | Front Desk — Live View   |
-| Right side | Muted "New intake" chip | Status badge + timestamp |
-| Tab title  | Patient Intake          | Front Desk — Live View   |
+|            | Patient (`/`)                    | Staff (`/staff`)         |
+| ---------- | -------------------------------- | ------------------------ |
+| Title      | Patient Intake                   | Front Desk — Live View   |
+| Right side | "Visible to the front desk" text | Status badge + timestamp |
+| Tab title  | Patient Intake                   | Front Desk — Live View   |
+
+The patient right side is **plain text**, not a chip. A pill that said "New
+intake" read as a start button, next to **Begin intake** and **Start new
+intake**. The caption is not tappable, and it restates the live-sync disclosure
+in the chrome so it is visible before the form copy.
 
 A tinted staff-only strip and a dark staff-only strip were both tried and
 rejected — the dark one read as a floating slab against the off-white page, and
-the tint sat too close to the status badge hues. The titles differ in length,
-shape and first word, and the right-hand element differs in kind (a live
-coloured badge against a flat chip), which is what separates the two views in
-side-by-side windows.
+the tint sat too close to the status badge hues.
 
 **If the two are ever confused in real use, enlarge the staff title rather than
 re-tinting the strip.** That keeps the fix to one property on one component and
@@ -73,16 +77,19 @@ staff route.
 
 ### Intro block
 
-The form does not open straight into fields. Three lines sit above the card,
-descending in weight:
+The form does not open straight into fields. The begin screen is centered and
+does not say “below”, because the fields are not on screen yet:
 
 ```text
 H1        New patient intake
-Lead      Please complete your details below. It takes about two minutes,
-          and front desk staff can see your answers as you type in case you
+Lead      When you are ready, start the form. It takes about two minutes.
+          Front desk staff will see your answers as you type, in case you
           need help.
-Caption   All fields required unless marked optional.
+Button    Begin intake
 ```
+
+Once they begin, the form intro uses “complete your details below”. Required
+fields are marked with a red asterisk.
 
 The lead paragraph does three jobs at once: it sets a time expectation, it
 explains _why_ the live sync exists, and it discloses that staff can see the
@@ -92,6 +99,10 @@ answers being typed.
 carried it as a footnote under the submit button, where a patient would only
 read it after entering everything. It is consent-adjacent copy, so it belongs
 before the first field.
+
+**Begin intake.** The fields stay hidden until this tap. That is also when the
+patient client joins the channel. Opening `/` alone does not count as
+Connected. **Start new intake** returns to this step and leaves the channel.
 
 ### Structure
 
@@ -134,11 +145,11 @@ separated by a heading and vertical space, never by another box.
 
 ### Required and optional marking
 
-**Mark only what is optional.** Most fields are required and only four are not
-(middle name, region, emergency name, emergency relationship), so marking the
-minority is far quieter than asterisking the majority. One line above the form
-reads "All fields required unless marked optional", and the word "Optional"
-sits beside those four labels. No asterisks anywhere.
+**Mark what is required, with a star.** A red `*` sits on each required label.
+That is the pattern patients already know from other forms, so it does not need
+a line of instructions above the fields. Optional fields (middle name, region,
+and the emergency pair) have no star. The emergency section heading still says
+"Optional", because the whole group can be skipped.
 
 ### Validation
 
@@ -170,6 +181,10 @@ the error attached to whichever field is empty.
 Native controls throughout: `input`, `select`, `textarea`, `type="date"`. No
 custom date picker. The date input sets `max` to today, so a future date of
 birth is not reachable.
+
+**Phone** is `type="tel"`, digits only (optional leading `+`), 8–15 characters.
+Spaces and dots are stripped as the patient types. Unlike the other fields,
+phone validates on change so a bad format shows immediately.
 
 **No autofocus** on the first field — it opens the mobile keyboard immediately
 and hides the structure of the form before the patient has seen it.
@@ -231,9 +246,11 @@ which one moved. Two guardrails: the value text itself never animates —
 sliding or jumping text hurts legibility, which is the whole point — and the
 fade respects `prefers-reduced-motion`, under which the value simply changes.
 
-**Last updated.** A relative timestamp near the badge ("updated 4s ago"). Without
-it, a frozen screen is indistinguishable from an idle patient — which becomes
-important for the disconnect cases below.
+**Last updated.** A relative timestamp near the badge ("updated just now", then
+"updated 1m ago"). Minutes, not a per-second count — a ticking second counter
+reads as a stopwatch, and **Filling in** already covers "they are typing now".
+Without the timestamp, a frozen screen is indistinguishable from an idle
+patient — which becomes important for the disconnect cases below.
 
 ### Status badge
 
@@ -313,7 +330,7 @@ someone was typing thirty seconds ago.
 
 **Last known values stay on screen.** Wiping them would destroy information
 staff may still need: if the patient walked off with the device, the front desk
-still wants the name and phone number already given. The "updated 4s ago"
+still wants the name and phone number already given. The "updated 1m ago"
 timestamp now carries real weight, telling staff how stale the view is.
 
 ### Patient refreshes
@@ -358,18 +375,20 @@ person. The design supports that loop.
 ### Patient
 
 1. Submit passes validation and broadcasts `submit`.
-2. Success banner appears: _"Your details have been submitted. Please return the
-   device to the front desk."_ — a specific next action, not a bare "Submitted
-   successfully".
+2. The intro is replaced by a success card: check, _"Details submitted"_,
+   _"Please return the device to the front desk"_, and a **Start new intake**
+   button sized to its label (not full width — that overpowered the message).
+   After submit the page scrolls to this card.
 3. **The form stays visible**, every field `readOnly` on a muted surface. Hiding
    it would leave a patient who spots a wrong phone number with nothing to point
    at. `readOnly` rather than `disabled`: disabled fields are skipped by keyboard
    navigation and read poorly to screen readers, so the patient could no longer
-   review what they sent.
+   review what they sent. Gender is a `<select>`, which has no `readOnly`, so
+   after submit it becomes a read-only text input showing the chosen label —
+   same muted surface, still in the tab order.
 4. The submit button is replaced by a plain "Submitted" label.
-5. Below the form, a secondary **Start new intake** button — deliberately not
-   beside the banner, so it does not compete with "return the device to the
-   front desk".
+5. **Start new intake** lives on the success card, not under the form. The
+   locked form stays below for review.
 
 **Reset lives on the patient device, not the staff view.** Two reasons. Every
 event in this system flows patient → staff; staff is a pure observer that
@@ -380,14 +399,10 @@ sits on the desk between intakes, so whoever taps the button is almost always
 the staff member handing it to the next person — the control belongs to the
 device, not to a job title.
 
-**Two-tap confirm.** The first tap turns the button into "Confirm?"; the second
-executes; it reverts after a few seconds if ignored. Enough friction to prevent
-an accidental wipe, with no modal component to build.
-
-On confirm, the patient broadcasts `session-reset`, the banner briefly reads
-"Ready for the next patient", and the form clears to editable-empty. That brief
-acknowledgement turns an otherwise unexplained wipe into an obvious state change
-for anyone watching the screen.
+One tap on **Start new intake** broadcasts `session-reset`, leaves the channel,
+and returns to the begin screen. A two-tap confirm was tried and dropped — it
+added a step without preventing real mistakes, and the staff view still keeps
+the previous submission.
 
 ### Staff
 
@@ -396,11 +411,12 @@ for anyone watching the screen.
    14:32". Relative time is useful for liveness and meaningless once nothing
    changes.
 2. Empty optional fields switch to "Not provided".
-3. `session-reset` received → the badge un-latches to **Connected** (or
-   **Waiting** if the patient has since left), but **the values stay on screen**
-   under a quiet "Previous submission" label. Nothing is persisted, so this
-   snapshot is the only copy of the record — it should survive a reset until
-   something genuinely supersedes it, and an accidental tap costs staff nothing.
+3. `session-reset` received → the badge returns to **Waiting** (the patient
+   has left the channel and is back on the begin screen), but **the values stay
+   on screen** under a quiet "Previous submission" label. Nothing is persisted,
+   so this snapshot is the only copy of the record — it should survive a reset
+   until something genuinely supersedes it, and an accidental tap costs staff
+   nothing.
 4. The first `field-change` of the new intake clears the previous submission and
    the live view resumes.
 
@@ -463,13 +479,13 @@ system document; this section records the rules behind them.
   inputs must never go below 16px, since smaller text triggers zoom on iOS.
   Section titles larger and semibold, labels 14px, captions 13px. No italics.
 - **Text contrast floor.** `zinc-400` is unused for text at 2.6:1 on white. Any
-  text that carries meaning — including the word "Optional", on which the whole
-  required/optional semantic rests — sits at `zinc-500` or darker.
+  text that carries meaning — including the emergency "Optional" heading and
+  the required `*` — sits at `zinc-500` or darker. The star is `red-700`.
 - **Spacing** — Tailwind's 4px/8px scale only. The contrast that matters is
   16px between fields against 40px before a section heading; that ratio is what
   makes the form scan as three chunks rather than one long list.
 - **Radius** — `rounded-md` on controls, buttons and nested cards; `rounded-xl`
-  on page cards. Pills only for status chips and the header chip.
+  on page cards. Pills only for the staff status chip.
 - **Focus** — a visible ring on every interactive element. Keyboard users must
   be able to complete the form without a mouse.
 - **Motion** — the staff row change tint only, ~1s, behind

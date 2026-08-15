@@ -14,6 +14,7 @@ on is pulled into `lib/` where neither owns it.
 app/                          routes only — thin, one file per URL
   layout.tsx                  <html>, Geist fonts, globals.css
   globals.css                 Tailwind import + base styles
+  icon.svg                    favicon — header mark on emerald-50
   page.tsx                    /          patient form
   patient/page.tsx            /patient   redirect → /
   staff/page.tsx              /staff     staff live view
@@ -24,7 +25,7 @@ components/
     PatientIntake.tsx         client root: form instance + channel + session state
     IntakeForm.tsx            the <form>: three sections, fields, submit
     FormField.tsx             labelled control — text, select, textarea, errors
-    IntakeActions.tsx         submit states + two-tap "Start new intake"
+    IntakeActions.tsx         submit states + "Start new intake"
   staff/                      used only by /staff
     StaffLiveView.tsx         client root: waiting vs record, reconnecting strip
     PatientRecord.tsx         the live record card — sections + rows
