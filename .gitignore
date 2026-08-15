@@ -40,5 +40,5 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# design
+# local design frames — not part of the submitted repo
 /design

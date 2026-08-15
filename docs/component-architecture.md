@@ -18,26 +18,31 @@ app/page.tsx                        server — exports metadata, nothing else
     │                               owns: useForm, submitted, usePatientSync
     ├── AppHeader variant="patient"
     ├── (intro: h1 · lead · "All fields required unless marked optional")
-    ├── SuccessBanner               when submitted
+    ├── (success banner)            when submitted — inline, one surface
     ├── IntakeForm                  reads the form via useFormContext
-    │   ├── FormSection "Personal details"
-    │   │   ├── TextField   firstName · middleName · lastName
-    │   │   ├── TextField   dateOfBirth        type="date", max=today
-    │   │   ├── SelectField gender             the only select in the form
-    │   │   └── TextField   nationality · preferredLanguage
-    │   ├── FormSection "Contact information"
-    │   │   ├── TextField     phone · email
-    │   │   ├── TextAreaField address
-    │   │   └── TextField     region
-    │   ├── FormSection "Emergency contact"     nested quiet card
-    │   │   └── TextField   emergencyName · emergencyRelationship
-    │   └── SubmitButton
-    └── StartNewIntake              when submitted
+    │   ├── section "Personal details"
+    │   │   ├── FormField   firstName · middleName · lastName
+    │   │   ├── FormField   dateOfBirth        type="date", max=today
+    │   │   ├── FormField   gender             as="select"
+    │   │   └── FormField   nationality · preferredLanguage
+    │   ├── section "Contact information"
+    │   │   ├── FormField   phone · email
+    │   │   ├── FormField   address            as="textarea"
+    │   │   └── FormField   region
+    │   ├── section "Emergency contact"    nested quiet card
+    │   │   └── FormField   emergencyName · emergencyRelationship
+    │   └── (submit)                inside the <form> — from IntakeActions
+    └── (reset)                     outside the form — from IntakeActions
 ```
 
-`TextField`, `SelectField` and `TextAreaField` all render through
-`FieldWrapper`, which is the only place that knows how a label, an "Optional"
-tag and an error message are arranged.
+Four files, not ten. A section heading is a few classes — it does not earn its
+own module. The three native controls share one `FormField` so label, "Optional",
+error text and `aria-*` stay in one place. Submit and the two-tap reset are one
+region in the design (the end of the form), so they share `IntakeActions`.
+
+`IntakeForm` still writes its own JSX for the grid — three-across names, paired
+short fields, full-width address — rather than generating the layout from a
+config. The shared piece is the control, not the page.
 
 ## Staff tree (`/staff`)
 
@@ -46,17 +51,31 @@ app/staff/page.tsx                  server — exports metadata, nothing else
 └── StaffLiveView                   "use client"
     │                               owns: useStaffSync
     ├── AppHeader variant="staff"
-    │   └── right: StatusBadge + LastUpdated
-    ├── ReconnectingBanner          when the staff socket is down
+    │   └── right: StatusBadge      badge + "updated 4s ago" / "Submitted at"
+    ├── (reconnecting strip)        when the staff socket is down
     └── body — one of:
-        ├── WaitingState            badge = Waiting
+        ├── (waiting)               badge = Waiting — centred invitation
         └── PatientRecord           every other badge state
             │                       + one-line note when Disconnected
-            ├── RecordSection ×3 → RecordRow ×13
+            ├── section ×3 → RecordRow ×13
             └── PreviousSubmission  after a session-reset
 ```
 
-The staff body is a single choice between two things, because
+Five files, not nine. Waiting and the reconnecting strip are page chrome —
+a heading, or an amber bar — so they live in `StaffLiveView`. A record section
+is a heading plus rows, same as a form section: markup inside `PatientRecord`,
+not a module. The timestamp always sits next to the badge, so it lives in
+`StatusBadge`.
+
+`RecordRow` stays a file because the highlight is real local state: it keys
+off `updatedAt`, not the field name, so editing the same field twice still
+re-triggers the tint.
+
+`PreviousSubmission` stays a file because flow 5 separates live and previous
+five ways. Sharing `PatientRecord` or `RecordRow` would pull those lists back
+together.
+
+The staff body is still a single choice between two things, because
 [design-decisions.md](./design-decisions.md) makes the body — not the chip — the
 signal that separates Waiting from Disconnected: Waiting shows no field list at
 all, Disconnected shows the full retained record.
@@ -72,8 +91,8 @@ because nothing has to cross between the two client roots.
 | -------------------------------- | ---------------- | ------------------------------------------------ |
 | Field values being typed         | React Hook Form  | Uncontrolled inputs; `PatientIntake` holds it    |
 | Validation errors                | React Hook Form  | From the Zod resolver                            |
-| `submitted` / `submittedAt`      | `PatientIntake`  | Drives banner, `readOnly`, `StartNewIntake`      |
-| "Confirm?" armed                 | `StartNewIntake` | Local, self-reverting — nobody else needs it     |
+| `submitted` / `submittedAt`      | `PatientIntake`  | Drives banner, `readOnly`, reset visibility      |
+| "Confirm?" armed                 | `IntakeActions`  | Local, self-reverting — nobody else needs it     |
 | Channel + per-field debouncers   | `usePatientSync` | Refs, so re-renders never re-subscribe           |
 | Received values + per-field time | `useStaffSync`   | `Partial<IntakeForm>` plus a timestamp per field |
 | Badge state                      | `useStaffSync`   | Derived every tick via `resolveBadgeState()`     |
@@ -120,7 +139,7 @@ field just left behind.
 ## Flow 2 — patient submits
 
 ```text
-SubmitButton
+IntakeActions (submit)
    │  handleSubmit → Zod (incl. emergency-contact superRefine)
    ├─ invalid ─► focus first failing field, aria-invalid, error text
    └─ valid   ─► sendSubmit(values) ─► submit { values, at }
@@ -129,8 +148,8 @@ SubmitButton
               PatientIntake            useStaffSync
               submitted = true         submittedAt = at
               banner, readOnly,        values frozen
-              StartNewIntake           badge latches Submitted
-                                       LastUpdated → "Submitted at 14:32"
+              reset visible            badge latches Submitted
+                                       timestamp → "Submitted at 14:32"
                                        empty fields → "Not provided"
 ```
 
@@ -164,7 +183,7 @@ values never cause a re-subscribe.
 ## Flow 4 — start a new intake
 
 ```text
-StartNewIntake  tap 1 → "Confirm?"  (reverts after a few seconds)
+IntakeActions   tap 1 → "Confirm?"  (reverts after a few seconds)
                 tap 2 → sendSessionReset()
                           │                    │
                           ▼                    ▼
@@ -238,7 +257,7 @@ Both views read their labels and ordering from here, and field components look
 their own label up by `name`:
 
 ```tsx
-<TextField name="firstName" />           // label comes from FIELD_LABELS
+<FormField name="firstName" />           // label comes from FIELD_LABELS
 ```
 
 That is not shortening for its own sake. Flow 3 makes the mirroring load-bearing
@@ -247,7 +266,7 @@ a shared registry makes that true by construction instead of by remembering to
 edit two files. The patient form still writes its own JSX, so the three-across
 names, the paired short fields and the full-width address stay explicit.
 
-**`lib/status-badge.ts`** — `resolveBadgeState(facts, now)`, the five ordered
+**`lib/badge-state.ts`** — `resolveBadgeState(facts, now)`, the five ordered
 rules from [realtime-sync.md](./realtime-sync.md) as a pure function. Order is
 the whole point (Submitted outranks Disconnected; Waiting requires never having
 seen a patient), and rules that matter in a specific order are far easier to
@@ -271,10 +290,10 @@ chip. The staff variant is handed its badge and timestamp by `StaffLiveView`.
 This keeps the shared header free of any import from `components/staff/`, so the
 dependency direction in [project-structure.md](./project-structure.md) holds.
 
-**`PreviousSubmission` does not reuse `RecordSection`.** It would have been one
-component with a `variant` prop, and that is the wrong instinct here: flow 5
-calls two stacked field lists the easiest hierarchy in this project to get
-wrong, and separates them five ways. A shared component pulls them back toward
-each other with every future edit. The previous block is also genuinely simpler
-— no highlight, no "Not provided yet", no live state — so the duplication is
-smaller than the variant branching it replaces.
+**`PreviousSubmission` does not reuse `PatientRecord` or `RecordRow`.** It
+would have been one component with a `variant` prop, and that is the wrong
+instinct here: flow 5 calls two stacked field lists the easiest hierarchy in
+this project to get wrong, and separates them five ways. A shared component
+pulls them back toward each other with every future edit. The previous block
+is also genuinely simpler — no highlight, no "Not provided yet", no live
+state — so the duplication is smaller than the variant branching it replaces.
