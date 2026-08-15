@@ -12,12 +12,13 @@ with Zod, and Supabase Realtime.
 
 ## How it works
 
-Two routes, one shared channel:
+Two routes for staff, one session channel per intake:
 
-| Route    | Who it is for  | What it does                                        |
-| -------- | -------------- | --------------------------------------------------- |
-| `/`      | The patient    | The intake form — thirteen fields, three sections   |
-| `/staff` | The front desk | A live read-only record of that form as it fills in |
+| Route                 | Who it is for  | What it does                                         |
+| --------------------- | -------------- | ---------------------------------------------------- |
+| `/`                   | The patient    | The intake form — thirteen fields, three sections    |
+| `/staff`              | The front desk | List of active sessions                              |
+| `/staff/[sessionId]`  | The front desk | Live read-only record for one intake                 |
 
 **There is no link between the two views**, by design: a patient handed a tablet
 should have no route into the monitoring screen. Open `/staff` in a second
@@ -67,13 +68,12 @@ npm run dev
 Open two browser windows side by side:
 
 - [localhost:3000](http://localhost:3000) — the patient form
-- [localhost:3000/staff](http://localhost:3000/staff) — the front desk view
+- [localhost:3000/staff](http://localhost:3000/staff) — the front desk list
 
-Type in the patient window. Values appear in the staff window within a moment,
-the changed row tints briefly, and the status badge moves between **Waiting**,
-**Connected**, **Filling in** and **Submitted**. Close the patient window and
-the badge becomes **Disconnected** while the values already given stay on
-screen.
+Tap **Begin intake** on the patient window. A row appears on `/staff`. Open
+it, then type — values land on the record, the changed row tints briefly, and
+the badge moves between **Connected**, **Filling in** and **Submitted**. A
+second patient window gets its own row; the two records do not mix.
 
 ---
 
@@ -83,11 +83,10 @@ These follow from decisions recorded in
 [docs/project-context.md](docs/project-context.md), not from unfinished work.
 
 - **A patient refresh clears the form.** Nothing is persisted on the patient
-  side, so a refresh returns an empty form and the staff view sees the values
-  disappear. It looks like a bug and is accepted as one: patient-side
-  persistence is an explicit non-goal.
-- **One intake at a time.** Both views join a single shared channel, so the app
-  supports one patient session. Per-session channels are a natural extension.
+  side, so a refresh starts a new session. Patient-side persistence is an
+  explicit non-goal.
+- **First join waits on the socket.** Opening `/staff` or a new row has to
+  subscribe to a channel. Typing on a record that is already open is immediate.
 - **Nothing is stored.** Broadcast messages are ephemeral and there is no
   database. A submitted record lives only on the screens currently open.
 - **No authentication.** `/staff` is open to anyone who knows the URL. Access
@@ -99,12 +98,14 @@ These follow from decisions recorded in
 
 These are in the app, not extras you have to imagine:
 
-- **Begin intake** — opening `/` does not join the channel. Staff stay on
+- **Several patients at once** — each Begin intake gets its own session
+  channel; `/staff` lists them from Presence on the list channel.
+- **Begin intake** — opening `/` does not join a channel. Staff stay on
   Waiting until the patient taps the button.
 - **Late-join snapshot** — a staff tab opened mid-form (or after submit)
   receives the current values in one payload, including the submitted flag.
-- **Previous submission** — Start new intake keeps the last record on the
-  staff screen until the next patient types.
+- **Ended sessions stay put** — Start new intake is a new row. An open
+  record does not redirect; it keeps the values under "This intake has ended."
 - **Reconnecting vs Disconnected** — a dropped staff socket shows an amber
   banner and dims the record; a patient leaving keeps the values at full
   strength under Disconnected.

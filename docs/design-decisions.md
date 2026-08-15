@@ -28,7 +28,7 @@ showing the intro.
 
 ```text
 Patient  →  /   Begin intake  →  fill form  →  submit  →  Start new intake
-Staff    →  /staff   Waiting  →  live values  →  Submitted  →  Waiting
+Staff    →  /staff   list     →  /staff/[sessionId]  live record
 ```
 
 **No cross-links between the two views.** A "Staff" link on a patient-facing
@@ -47,13 +47,14 @@ one canonical patient URL.
 views then lives in one file, which is what makes it cheap to change later.
 
 The strip itself is identical on both routes — the same brand tint, the same
-accent mark. Three things differ:
+accent mark. What differs:
 
-|            | Patient (`/`)                    | Staff (`/staff`)         |
-| ---------- | -------------------------------- | ------------------------ |
-| Title      | Patient Intake                   | Front Desk — Live View   |
-| Right side | "Visible to the front desk" text | Status badge + timestamp |
-| Tab title  | Patient Intake                   | Front Desk — Live View   |
+|            | Patient (`/`)                    | Staff list (`/staff`)  | Staff record (`/staff/[id]`) |
+| ---------- | -------------------------------- | ---------------------- | ---------------------------- |
+| Title      | Patient Intake                   | Front Desk             | Patient display name         |
+| Caption    | —                                | —                      | Front Desk — Live View       |
+| Right side | "Visible to the front desk" text | —                      | Status badge + timestamp     |
+| Tab title  | Patient Intake                   | Front Desk — Live View | Front Desk — Live View       |
 
 The patient right side is **plain text**, not a chip. A pill that said "New
 intake" read as a start button, next to **Begin intake** and **Start new
@@ -279,19 +280,20 @@ signal:
 
 |      | Waiting                                            | Disconnected                                                                   |
 | ---- | -------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Body | No field list at all — only the centred invitation | A full retained record                                                         |
+| Body | Empty list — no rows                               | A full retained record on the detail route                                     |
 | Dot  | Solid                                              | Hollow ring — something was there and has gone out                             |
-| Note | None                                               | One line above the record: "Patient disconnected — showing last known values." |
+| Note | None                                               | Zinc strip: "Patient disconnected — showing last known values."                |
 
 The body difference is the one a staff member reads from across the desk, before
 resolving any chip.
 
 ### Empty state
 
-Before any patient connects, the content area shows a centred message —
-"Waiting for a patient to begin" — with a smaller line noting that the patient
-form is at the root URL. Never a blank page, and it quietly orients a reviewer
-who has opened the wrong window first.
+Before any patient connects, `/staff` shows a centred message — "Waiting for a
+patient to begin" — with a smaller line noting that the patient form is at the
+root URL. Never a blank page, and it quietly orients a reviewer who has opened
+the wrong window first. Once a session exists, the list heading is "Active
+intakes".
 
 ### Accessibility
 
@@ -335,13 +337,14 @@ timestamp now carries real weight, telling staff how stale the view is.
 
 ### Patient refreshes
 
-This is a leave immediately followed by a join, and the form returns empty since
-nothing is persisted. It is handled as exactly that: badge goes Disconnected,
-then Connected, and the fresh empty state broadcasts over the old values.
+A refresh leaves the current session and starts a new one: new `sessionId`,
+empty form, new list row. The old row disappears from `/staff`. If staff still
+have that record open, it stays on screen with "This intake has ended."
 
-Values visibly disappearing looks like a bug, and is accepted rather than
-engineered around — patient-side persistence is an explicit non-goal. The README
-notes it as a known consequence of that decision.
+Values visibly disappearing from the old record looks like a bug, and is
+accepted rather than engineered around — patient-side persistence is an
+explicit non-goal. The README notes it as a known consequence of that
+decision.
 
 ### Staff loses connection
 
@@ -399,43 +402,22 @@ sits on the desk between intakes, so whoever taps the button is almost always
 the staff member handing it to the next person — the control belongs to the
 device, not to a job title.
 
-One tap on **Start new intake** broadcasts `session-reset`, leaves the channel,
-and returns to the begin screen. A two-tap confirm was tried and dropped — it
-added a step without preventing real mistakes, and the staff view still keeps
-the previous submission.
+One tap on **Start new intake** broadcasts `session-reset`, leaves both
+channels, and returns to the begin screen. A two-tap confirm was tried and
+dropped. The next patient gets a new `sessionId` and a new row on the staff
+list.
 
 ### Staff
 
 1. `submit` received → values freeze as the final snapshot, the badge latches to
    **Submitted**, and the relative timestamp switches to a fixed "Submitted at
-   14:32". Relative time is useful for liveness and meaningless once nothing
-   changes.
+   14:32". The row stays on the list until the patient resets or
+   disconnects, so staff can still open a completed intake.
 2. Empty optional fields switch to "Not provided".
-3. `session-reset` received → the badge returns to **Waiting** (the patient
-   has left the channel and is back on the begin screen), but **the values stay
-   on screen** under a quiet "Previous submission" label. Nothing is persisted,
-   so this snapshot is the only copy of the record — it should survive a reset
-   until something genuinely supersedes it, and an accidental tap costs staff
-   nothing.
-4. The first `field-change` of the new intake clears the previous submission and
-   the live view resumes.
-
-**Live and previous must be unmistakable**, since two stacked field lists is the
-easiest hierarchy in this project to get wrong. Five separations, not one:
-
-- **Surface** — live is a white card with the accent top rule; previous is a
-  sunken grey with no rule. Only the live record gets the accent.
-- **Headings** — live sections are section-sized and semibold with an accent dot;
-  previous sections are caption-sized muted text with no dot.
-- **Values** — live at body size in near-black; previous one step down in size
-  and weight. A step down, not a fade: it is still the only copy of the record.
-- **Order** — always below the live record, behind a rule.
-- **Caption** — states its submit time _and_ its expiry condition, so staff know
-  it disappears on the next keystroke rather than wondering.
-
-The "Previous submission" label sits **outside** that block, not inside it. A
-heading within a container reads as a section of the record; above it, it reads
-as a status for the whole block.
+3. `session-reset` or disconnect while staff is on the detail route → do **not**
+   auto-redirect. Keep the record and show "This intake has ended." with the
+   back link. A new Begin intake is a different session, not a second list
+   under the same card.
 
 ---
 
@@ -472,8 +454,8 @@ system document; this section records the rules behind them.
   coloured border and dot rather than a pale green fill — a pale fill on the pale
   header strip had almost no separation. Check any accent change against all four
   status hues before adopting it.
-- **Surfaces** — off-white page, white cards, a sunken grey for the previous
-  submission and read-only fields. Two surfaces per screen, not three.
+- **Surfaces** — off-white page, white cards, a sunken grey for read-only
+  fields. Two surfaces per screen, not three.
 - **Type** — Geist, already loaded by the Next.js scaffold. Five roles, three
   weights (400 / 500 / 600), one family. Body and every record value 16px —
   inputs must never go below 16px, since smaller text triggers zoom on iOS.
@@ -489,15 +471,15 @@ system document; this section records the rules behind them.
 - **Focus** — a visible ring on every interactive element. Keyboard users must
   be able to complete the form without a mouse.
 - **Motion** — the staff row change tint only, ~1s, behind
-  `prefers-reduced-motion`. No spinners, no transitions on value text.
+  `prefers-reduced-motion`. The Connected dot is static — a pulse competed
+  with Filling in. No spinners, no transitions on value text.
 - **One theme.** No dark mode.
 
 ---
 
 ## Open questions
 
-Deliberately unresolved, to be settled during implementation rather than guessed
-at now:
+Deliberately unresolved, to be settled in real use rather than guessed at now:
 
 - **Header distinction.** Both views currently share one strip, separated only by
   title and by the kind of element on the right. This is accepted for now. If the
@@ -507,9 +489,6 @@ at now:
 - **Accent against status green.** The accent family neighbours the "Connected"
   hue. The white-fill Connected chip is the mitigation; verify it on a real
   screen against the header strip before committing.
-- **Invalid-submit as a whole screen.** Field-level error styling is specified,
-  but no full-page frame exists showing focus landing on the first failing field.
-  Build it, then check it with the keyboard only.
 
 ---
 

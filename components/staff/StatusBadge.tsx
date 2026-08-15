@@ -21,6 +21,7 @@ type StatusBadgeProps = {
   lastUpdatedAt: number | null;
   submittedAt: number | null;
   now: number;
+  announce?: boolean;
 };
 
 function formatUpdated(at: number, now: number) {
@@ -38,6 +39,7 @@ export function StatusBadge({
   lastUpdatedAt,
   submittedAt,
   now,
+  announce = true,
 }: StatusBadgeProps) {
   const timeLabel =
     badge === "submitted" && submittedAt
@@ -50,7 +52,10 @@ export function StatusBadge({
         : null;
 
   return (
-    <div className="flex flex-wrap items-center gap-3" aria-live="polite">
+    <div
+      className="flex flex-wrap items-center gap-3"
+      aria-live={announce ? "polite" : undefined}
+    >
       <span
         className={`inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium ${BADGE_CLASS[badge]}`}
       >
@@ -74,7 +79,7 @@ export function StatusBadge({
         {BADGE_LABEL[badge]}
       </span>
       {timeLabel ? (
-        <span className="text-sm text-zinc-500">{timeLabel}</span>
+        <span className="min-w-32 text-sm text-zinc-500">{timeLabel}</span>
       ) : null}
     </div>
   );

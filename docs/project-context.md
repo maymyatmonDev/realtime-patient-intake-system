@@ -21,10 +21,11 @@ the intake in progress.
 **Patient form** — a responsive form capturing personal details, contact
 information and an optional emergency contact, with validation on submission.
 
-**Staff view** — a responsive interface displaying every field from the patient
-form as it is entered or updated, along with a single status badge showing
-whether a patient has yet to join, is connected, is actively filling in the
-form, has submitted it, or has disconnected.
+**Staff view** — a list of active intakes at `/staff`, and a live record at
+`/staff/[sessionId]` that displays every field from the patient form as it is
+entered or updated, along with a single status badge showing whether a
+patient is connected, is actively filling in the form, has submitted it, or
+has disconnected.
 
 **Real-time synchronisation** — patient input propagates to the staff view
 immediately, without a page refresh on either side.
@@ -64,10 +65,6 @@ provides the connection tracking the status indicators depend on.
 
 ## Constraints and assumptions
 
-- **Single intake session.** The brief refers to "the patient form" in the
-  singular, so both interfaces join one shared channel. Supporting multiple
-  concurrent patients via per-session channels is treated as an enhancement
-  rather than a core requirement.
 - **No persistence.** Broadcast messages are ephemeral; nothing is stored
   server-side. This is acceptable for a live monitoring view and keeps the
   system free of a database.

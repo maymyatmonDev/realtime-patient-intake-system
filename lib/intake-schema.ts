@@ -110,8 +110,20 @@ export const presenceSchema = z.object({
   joinedAt: z.number(),
 });
 
+export const listPresenceSchema = z.object({
+  sessionId: z.string(),
+  displayName: z.string(),
+  filledCount: z.number(),
+  totalCount: z.number(),
+  status: z.enum(["filling", "idle", "submitted"]),
+  lastChangeAt: z.number().nullable(),
+  startedAt: z.number(),
+  values: z.record(z.string(), z.string()),
+});
+
 export type FieldChangePayload = z.infer<typeof fieldChangeSchema>;
 export type SubmitPayload = z.infer<typeof submitSchema>;
 export type SessionResetPayload = z.infer<typeof sessionResetSchema>;
 export type StateSnapshotPayload = z.infer<typeof stateSnapshotSchema>;
 export type PresencePayload = z.infer<typeof presenceSchema>;
+export type ListPresencePayload = z.infer<typeof listPresenceSchema>;

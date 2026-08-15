@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { StaffLiveView } from "@/components/staff/StaffLiveView";
+import { StaffList } from "@/components/staff/StaffList";
 
 export const metadata: Metadata = {
   title: "Front Desk — Live View",
 };
 
 export default function StaffPage() {
-  return <StaffLiveView />;
+  return <StaffList />;
 }

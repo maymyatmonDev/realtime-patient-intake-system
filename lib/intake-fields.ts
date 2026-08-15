@@ -1,4 +1,4 @@
-import type { FieldName } from "@/lib/intake-schema";
+import type { FieldName, IntakeForm } from "@/lib/intake-schema";
 
 export const FIELD_LABELS: Record<FieldName, string> = {
   firstName: "First name",
@@ -52,6 +52,29 @@ export const GENDER_OPTIONS = [
   { value: "other", label: "Other" },
   { value: "prefer-not-to-say", label: "Prefer not to say" },
 ] as const;
+
+export const FIELD_NAMES = Object.keys(FIELD_LABELS) as FieldName[];
+
+export const TOTAL_FIELD_COUNT = FIELD_NAMES.length;
+
+export function displayNameFromValues(values: Partial<IntakeForm>) {
+  const name = [values.firstName, values.lastName]
+    .map((part) => part?.trim() ?? "")
+    .filter(Boolean)
+    .join(" ");
+
+  return name || "Unnamed intake";
+}
+
+export function filledFieldCount(values: Partial<IntakeForm>) {
+  return FIELD_NAMES.filter((field) => Boolean(values[field])).length;
+}
+
+export function filledValues(values: Partial<IntakeForm>) {
+  return Object.fromEntries(
+    Object.entries(values).filter(([, value]) => Boolean(value)),
+  );
+}
 
 export function displayFieldValue(name: FieldName, value: string) {
   if (name === "gender") {

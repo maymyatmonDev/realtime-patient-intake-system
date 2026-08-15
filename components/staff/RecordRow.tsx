@@ -37,7 +37,7 @@ export function RecordRow({
     <div
       className={`flex flex-col gap-1 border-b border-zinc-100 py-3 md:flex-row md:items-baseline ${
         highlight
-          ? "bg-amber-50 motion-reduce:bg-transparent"
+          ? "bg-amber-100 motion-reduce:bg-transparent"
           : "bg-transparent transition-colors duration-1000 motion-reduce:transition-none"
       }`}
     >

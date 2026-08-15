@@ -8,16 +8,27 @@ import { ResetControl } from "@/components/patient/IntakeActions";
 import { IntakeForm } from "@/components/patient/IntakeForm";
 import { usePatientSync } from "@/hooks/usePatientSync";
 import {
+  displayNameFromValues,
+  filledFieldCount,
+  filledValues,
+  TOTAL_FIELD_COUNT,
+} from "@/lib/intake-fields";
+import { FILLING_IN_MS } from "@/lib/realtime";
+import {
   emptyIntakeForm,
   intakeSchema,
   type FieldName,
   type IntakeForm as IntakeValues,
+  type ListPresencePayload,
   type StateSnapshotPayload,
 } from "@/lib/intake-schema";
 
 export function PatientIntake() {
   const bannerRef = useRef<HTMLDivElement>(null);
   const [started, setStarted] = useState(false);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [lastChangeAt, setLastChangeAt] = useState<number | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [submittedAt, setSubmittedAt] = useState<number | null>(null);
   const form = useForm<IntakeValues>({
@@ -36,9 +47,30 @@ export function PatientIntake() {
     };
   }, [form, submitted, submittedAt]);
 
+  const getListPresence = useCallback((): ListPresencePayload => {
+    const values = form.getValues();
+    const filling =
+      !submitted &&
+      lastChangeAt !== null &&
+      Date.now() - lastChangeAt < FILLING_IN_MS;
+
+    return {
+      sessionId: sessionId ?? "",
+      displayName: displayNameFromValues(values),
+      filledCount: filledFieldCount(values),
+      totalCount: TOTAL_FIELD_COUNT,
+      status: submitted ? "submitted" : filling ? "filling" : "idle",
+      lastChangeAt: lastChangeAt,
+      startedAt: startedAt ?? Date.now(),
+      values: filledValues(values),
+    };
+  }, [form, lastChangeAt, sessionId, startedAt, submitted]);
+
   const { sendFieldChange, sendSubmit, sendSessionReset } = usePatientSync({
     active: started,
+    sessionId,
     getSnapshot,
+    getListPresence,
   });
 
   useEffect(() => {
@@ -48,6 +80,7 @@ export function PatientIntake() {
       }
 
       const name = info.name as FieldName;
+      setLastChangeAt(Date.now());
       sendFieldChange(name, String(values[name] ?? ""));
     });
 
@@ -75,6 +108,9 @@ export function PatientIntake() {
     setSubmitted(false);
     setSubmittedAt(null);
     setStarted(false);
+    setSessionId(null);
+    setStartedAt(null);
+    setLastChangeAt(null);
   };
 
   return (
@@ -105,7 +141,7 @@ export function PatientIntake() {
         ) : null}
 
         {!started && !submitted ? (
-          <div className="flex flex-col items-center py-16 text-center">
+          <div className="flex flex-col items-center py-20 text-center">
             <h1 className="text-2xl font-semibold text-zinc-900">
               New patient intake
             </h1>
@@ -116,7 +152,11 @@ export function PatientIntake() {
             </p>
             <button
               type="button"
-              onClick={() => setStarted(true)}
+              onClick={() => {
+                setSessionId(crypto.randomUUID());
+                setStartedAt(Date.now());
+                setStarted(true);
+              }}
               className="mt-8 cursor-pointer rounded-md bg-emerald-400 px-5 py-3 text-base font-semibold text-emerald-950 hover:bg-emerald-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
             >
               Begin intake
@@ -133,8 +173,8 @@ export function PatientIntake() {
                 </h1>
                 <p className="mt-2 max-w-xl text-base leading-relaxed text-zinc-600">
                   Please complete your details below. It takes about two
-                  minutes, and front desk staff can see your answers as you
-                  type in case you need help.
+                  minutes, and front desk staff can see your answers as you type
+                  in case you need help.
                 </p>
               </>
             ) : null}

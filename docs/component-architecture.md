@@ -47,37 +47,21 @@ config. The shared piece is the control, not the page.
 ## Staff tree (`/staff`)
 
 ```text
-app/staff/page.tsx                  server — exports metadata, nothing else
-└── StaffLiveView                   "use client"
-    │                               owns: useStaffSync
-    ├── AppHeader variant="staff"
-    │   └── right: StatusBadge      badge + "updated just now" / "1m ago" / "Submitted at"
-    ├── (reconnecting strip)        when the staff socket is down
-    └── body — one of:
-        ├── (waiting)               badge = Waiting — centred invitation
-        └── PatientRecord           every other badge state
-            │                       + one-line note when Disconnected
-            ├── section ×3 → RecordRow ×13
-            └── PreviousSubmission  after a session-reset
+app/staff/layout.tsx                StaffWorkspace — list + session sockets
+app/staff/page.tsx                  staff list
+└── StaffList
+    └── row → /staff/[sessionId]
+app/staff/[sessionId]/page.tsx
+└── StaffLiveView
+    ├── AppHeader  back + display name + StatusBadge
+    ├── (ended banner)              session gone; record stays
+    └── PatientRecord               reused as-is
+            └── section ×3 → RecordRow ×13
 ```
 
-Five files, not nine. Waiting and the reconnecting strip are page chrome —
-a heading, or an amber bar — so they live in `StaffLiveView`. A record section
-is a heading plus rows, same as a form section: markup inside `PatientRecord`,
-not a module. The timestamp always sits next to the badge, so it lives in
-`StatusBadge`.
-
-`RecordRow` stays a file because the highlight keys off `updatedAt`, not the
-field name, so editing the same field twice still re-triggers the tint.
-
-`PreviousSubmission` stays a file because flow 5 separates live and previous
-five ways. Sharing `PatientRecord` or `RecordRow` would pull those lists back
-together.
-
-The staff body is still a single choice between two things, because
-[design-decisions.md](./design-decisions.md) makes the body — not the chip — the
-signal that separates Waiting from Disconnected: Waiting shows no field list at
-all, Disconnected shows the full retained record.
+Waiting lives on the staff list. The record view is reused on the detail
+route. `RecordRow` stays a file because the highlight keys off `updatedAt`,
+not the field name, so editing the same field twice still re-triggers the tint.
 
 ---
 
@@ -94,7 +78,8 @@ because nothing has to cross between the two client roots.
 | Reset click                      | `IntakeActions`  | Calls `onReset` — no extra confirm step          |
 | Channel + per-field debouncers   | `usePatientSync` | Refs, so re-renders never re-subscribe           |
 | Received values + per-field time | `useStaffSync`   | `Partial<IntakeForm>` plus a timestamp per field |
-| Badge state                      | `useStaffSync`   | Derived every tick via `resolveBadgeState()`     |
+| Badge state                      | `useStaffSync` / `useStaffList` | Derived every tick via `resolveBadgeState()` |
+| Staff list                       | `useStaffList`   | Presence only; `ready` after first sync          |
 | Row highlight                    | `RecordRow`      | Local state keyed on `updatedAt`                 |
 
 `useForm` lives in `PatientIntake` rather than in `IntakeForm` for one concrete
@@ -164,7 +149,7 @@ StaffLiveView mounts
              │
              ▼
        usePatientSync sees a presence join with role "staff"
-             │  debounce ~500ms — three tabs at once send one payload
+             │  send immediately; ignore further snapshots for ~500ms
              ▼
        getSnapshot()  ← supplied by PatientIntake: getValues() + submitted
              │
@@ -185,14 +170,10 @@ values never cause a re-subscribe.
 IntakeActions   tap → sendSessionReset()
                           │                    │
                           ▼                    ▼
-                   PatientIntake         useStaffSync
-                   form.reset()          previousSubmission = current values
-                   submitted = false     live values cleared
-                   banner: "Ready for    badge un-latches
-                   the next patient"
-                                              ▼
-                                        PreviousSubmission renders
-                                        next field-change clears it
+                   PatientIntake         patient leaves list + session
+                   form.reset()          list row disappears
+                   return to begin       open detail keeps the record
+                                         and shows "This intake has ended."
 ```
 
 Reset lives on the patient device. Staff never sends, so `useStaffSync` has no
@@ -207,7 +188,9 @@ not by convention.
 // hooks/usePatientSync.ts
 function usePatientSync(opts: {
   active: boolean;
+  sessionId: string | null;
   getSnapshot: () => StateSnapshotPayload;
+  getListPresence: () => ListPresencePayload;
 }): {
   sendFieldChange: (field: FieldName, value: string) => void;
   sendSubmit: (values: IntakeForm) => void;
@@ -215,34 +198,44 @@ function usePatientSync(opts: {
 };
 
 // hooks/useStaffSync.ts  — receive only, by design
-function useStaffSync(): {
+function useStaffSync(sessionId: string | null): {
   connection: "connected" | "reconnecting";
   badge: BadgeState;
   values: Partial<IntakeForm>;
   fieldUpdatedAt: Partial<Record<FieldName, number>>;
   lastUpdatedAt: number | null;
   submittedAt: number | null;
-  previousSubmission: { values: IntakeForm; submittedAt: number } | null;
+  ended: boolean;
+  now: number;
+};
+
+// hooks/useStaffList.ts  — receive only; Presence, no broadcasts
+function useStaffList(): {
+  sessions: ListSession[];
+  ready: boolean;
+  now: number;
 };
 ```
 
-`useStaffSync` runs a 1s interval so the badge can decay from **Filling in** to
-**Connected** on its own. Without it the badge would sit on "Filling in" until
-the next message happened to arrive — it decays on a timer, not on an event.
+`useStaffSync` and `useStaffList` run a 1s interval so the badge can decay
+from **Filling in** to **Connected** on its own. Without it the badge would
+sit on "Filling in" until the next message happened to arrive — it decays on
+a timer, not on an event.
 
-**The two hooks deliberately do not share a base hook.** Supabase requires every
+**The hooks deliberately do not share a base hook.** Supabase requires every
 `.on()` listener to be registered before `.subscribe()`, so a shared base would
-have to take listener-injection callbacks — more indirection than the ~15 lines
-of channel setup it would save. Two hooks that each read straight down are
-easier to follow and easier to debug.
+have to take listener-injection callbacks — more indirection than the channel
+setup it would save. Hooks that each read straight down are easier to follow
+and easier to debug.
 
 ---
 
 ## Shared modules
 
-**`lib/intake-schema.ts`** — the form schema and all four event payload schemas
-in one file, with every type produced by `z.infer`. Keeping the payloads beside
-the form schema is what makes it impossible for the contract in
+**`lib/intake-schema.ts`** — the form schema, the four event payloads, and the
+list Presence payload in one file, with every type produced by `z.infer`.
+Keeping the payloads beside the form schema is what makes it impossible for
+the contract in
 [realtime-sync.md](./realtime-sync.md) and the contract in the code to drift
 apart silently.
 
@@ -280,19 +273,11 @@ union:
 ```ts
 type AppHeaderProps =
   | { variant: "patient" }
-  | { variant: "staff"; right: ReactNode };
+  | { variant: "staff"; right?: ReactNode; backHref?: string; title?: string };
 ```
 
 The patient variant renders its own caption ("Visible to the front desk") —
-plain text, not a chip. The staff variant is handed its badge and timestamp by
-`StaffLiveView`.
-This keeps the shared header free of any import from `components/staff/`, so the
+plain text, not a chip. The staff list uses the default title; the detail
+route passes a back link and the patient's display name. This keeps the
+shared header free of any import from `components/staff/`, so the
 dependency direction in [project-structure.md](./project-structure.md) holds.
-
-**`PreviousSubmission` does not reuse `PatientRecord` or `RecordRow`.** It
-would have been one component with a `variant` prop, and that is the wrong
-instinct here: flow 5 calls two stacked field lists the easiest hierarchy in
-this project to get wrong, and separates them five ways. A shared component
-pulls them back toward each other with every future edit. The previous block
-is also genuinely simpler — no highlight, no "Not provided yet", no live
-state — so the duplication is smaller than the variant branching it replaces.

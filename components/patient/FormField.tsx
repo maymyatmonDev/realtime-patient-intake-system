@@ -76,8 +76,9 @@ export function FormField({
     openDatePicker(event.currentTarget);
   };
 
-  const controlClassName =
-    "w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-base text-zinc-900 read-only:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600";
+  const controlClassName = `w-full rounded-md border bg-white px-3 py-2 text-base text-zinc-900 read-only:bg-zinc-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${
+    error ? "border-red-700" : "border-zinc-300"
+  }`;
 
   return (
     <div className="flex flex-col gap-1">

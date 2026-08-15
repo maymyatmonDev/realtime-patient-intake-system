@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import { resolveBadgeState, type BadgeState } from "@/lib/badge-state";
 import {
-  emptyIntakeForm,
   fieldChangeSchema,
   presenceSchema,
   sessionResetSchema,
@@ -12,8 +11,17 @@ import {
   type FieldName,
   type IntakeForm,
 } from "@/lib/intake-schema";
-import { CHANNEL_NAME, REALTIME_EVENTS } from "@/lib/realtime";
+import { REALTIME_EVENTS, sessionChannelName } from "@/lib/realtime";
 import { supabase } from "@/lib/supabase";
+
+const sessionCache = new Map<
+  string,
+  {
+    values: Partial<IntakeForm>;
+    submittedAt: number | null;
+    lastUpdatedAt: number | null;
+  }
+>();
 
 function patientIsPresent(state: Record<string, unknown[]>) {
   return Object.values(state).some((presences) =>
@@ -24,10 +32,12 @@ function patientIsPresent(state: Record<string, unknown[]>) {
   );
 }
 
-export function useStaffSync() {
+export function useStaffSync(sessionId: string | null) {
   const [connection, setConnection] = useState<"connected" | "reconnecting">(
-    "reconnecting",
+    "connected",
   );
+  const hasConnectedRef = useRef(false);
+  const [seenId, setSeenId] = useState(sessionId);
   const [values, setValues] = useState<Partial<IntakeForm>>({});
   const [fieldUpdatedAt, setFieldUpdatedAt] = useState<
     Partial<Record<FieldName, number>>
@@ -37,21 +47,22 @@ export function useStaffSync() {
   const [submittedAt, setSubmittedAt] = useState<number | null>(null);
   const [patientPresent, setPatientPresent] = useState(false);
   const [patientWasSeen, setPatientWasSeen] = useState(false);
-  const [previousSubmission, setPreviousSubmission] = useState<{
-    values: IntakeForm;
-    submittedAt: number;
-  } | null>(null);
+  const [emptyAt, setEmptyAt] = useState<number | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const valuesRef = useRef(values);
-  const submittedAtRef = useRef(submittedAt);
 
-  useEffect(() => {
-    valuesRef.current = values;
-  }, [values]);
-
-  useEffect(() => {
-    submittedAtRef.current = submittedAt;
-  }, [submittedAt]);
+  if (sessionId !== seenId) {
+    setSeenId(sessionId);
+    const cached = sessionId ? sessionCache.get(sessionId) : undefined;
+    setValues(cached?.values ?? {});
+    setFieldUpdatedAt({});
+    setLastChangeAt(null);
+    setLastUpdatedAt(cached?.lastUpdatedAt ?? null);
+    setSubmittedAt(cached?.submittedAt ?? null);
+    setPatientPresent(false);
+    setPatientWasSeen(false);
+    setEmptyAt(null);
+    setConnection("connected");
+  }
 
   useEffect(() => {
     const id = window.setInterval(() => setNow(Date.now()), 1000);
@@ -59,19 +70,40 @@ export function useStaffSync() {
   }, []);
 
   useEffect(() => {
+    if (!sessionId) {
+      return;
+    }
+
+    hasConnectedRef.current = false;
+
     const clientId = crypto.randomUUID();
-    const channel = supabase.channel(CHANNEL_NAME, {
+    const channel = supabase.channel(sessionChannelName(sessionId), {
       config: {
         broadcast: { self: false },
         presence: { key: clientId },
       },
     });
 
+    const remember = (
+      nextValues: Partial<IntakeForm>,
+      nextSubmittedAt: number | null,
+      nextUpdatedAt: number | null,
+    ) => {
+      sessionCache.set(sessionId, {
+        values: nextValues,
+        submittedAt: nextSubmittedAt,
+        lastUpdatedAt: nextUpdatedAt,
+      });
+    };
+
     const syncPresence = () => {
       const present = patientIsPresent(channel.presenceState());
       setPatientPresent(present);
       if (present) {
         setPatientWasSeen(true);
+        setEmptyAt(null);
+      } else {
+        setEmptyAt((current) => current ?? Date.now());
       }
     };
 
@@ -84,11 +116,15 @@ export function useStaffSync() {
       }
 
       const { field, value, at } = parsed.data;
-      setValues((current) => ({ ...current, [field]: value }));
+      setValues((current) => {
+        const next = { ...current, [field]: value };
+        const cached = sessionCache.get(sessionId);
+        remember(next, cached?.submittedAt ?? null, at);
+        return next;
+      });
       setFieldUpdatedAt((current) => ({ ...current, [field]: at }));
       setLastChangeAt(at);
       setLastUpdatedAt(at);
-      setPreviousSubmission(null);
     });
 
     channel.on("broadcast", { event: REALTIME_EVENTS.SUBMIT }, ({ payload }) => {
@@ -100,27 +136,11 @@ export function useStaffSync() {
       setValues(parsed.data.values);
       setSubmittedAt(parsed.data.at);
       setLastUpdatedAt(parsed.data.at);
+      remember(parsed.data.values, parsed.data.at, parsed.data.at);
     });
 
     channel.on("broadcast", { event: REALTIME_EVENTS.SESSION_RESET }, ({ payload }) => {
-      const parsed = sessionResetSchema.safeParse(payload);
-      if (!parsed.success) {
-        return;
-      }
-
-      const current = valuesRef.current;
-      if (Object.keys(current).length > 0) {
-        setPreviousSubmission({
-          values: { ...emptyIntakeForm, ...current },
-          submittedAt: submittedAtRef.current ?? parsed.data.at,
-        });
-      }
-      setValues({});
-      setFieldUpdatedAt({});
-      setLastChangeAt(null);
-      setLastUpdatedAt(null);
-      setSubmittedAt(null);
-      setPatientWasSeen(false);
+      sessionResetSchema.safeParse(payload);
     });
 
     channel.on("broadcast", { event: REALTIME_EVENTS.STATE_SNAPSHOT }, ({ payload }) => {
@@ -129,14 +149,17 @@ export function useStaffSync() {
         return;
       }
 
+      const nextSubmitted = parsed.data.submitted ? parsed.data.submittedAt : null;
       setValues(parsed.data.values);
-      setSubmittedAt(parsed.data.submitted ? parsed.data.submittedAt : null);
+      setSubmittedAt(nextSubmitted);
       setLastUpdatedAt(parsed.data.at);
+      remember(parsed.data.values, nextSubmitted, parsed.data.at);
     });
 
     channel.subscribe((status) => {
       if (status === "SUBSCRIBED") {
         setConnection("connected");
+        hasConnectedRef.current = true;
         void channel.track({
           role: "staff",
           clientId,
@@ -145,13 +168,19 @@ export function useStaffSync() {
         return;
       }
 
-      setConnection("reconnecting");
+      if (hasConnectedRef.current) {
+        setConnection("reconnecting");
+      }
     });
 
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, []);
+  }, [sessionId]);
+
+  const ended =
+    !patientPresent &&
+    (patientWasSeen || (emptyAt !== null && now - emptyAt > 1500));
 
   const badge: BadgeState = resolveBadgeState(
     {
@@ -170,7 +199,7 @@ export function useStaffSync() {
     fieldUpdatedAt,
     lastUpdatedAt,
     submittedAt,
-    previousSubmission,
+    ended,
     now,
   };
 }

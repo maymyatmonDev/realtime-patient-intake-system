@@ -17,7 +17,8 @@ app/                          routes only — thin, one file per URL
   icon.svg                    favicon — header mark on emerald-50
   page.tsx                    /          patient form
   patient/page.tsx            /patient   redirect → /
-  staff/page.tsx              /staff     staff live view
+  staff/page.tsx              /staff              list of active sessions
+  staff/[sessionId]/page.tsx  /staff/[sessionId]  one live record
 
 components/
   AppHeader.tsx               shared strip, variant: patient | staff
@@ -27,15 +28,17 @@ components/
     FormField.tsx             labelled control — text, select, textarea, errors
     IntakeActions.tsx         submit states + "Start new intake"
   staff/                      used only by /staff
-    StaffLiveView.tsx         client root: waiting vs record, reconnecting strip
+    StaffWorkspace.tsx        staff layout — keeps list + session sockets
+    StaffList.tsx             /staff list — one row per list Presence
+    StaffLiveView.tsx         /staff/[sessionId] record, ended banner
     PatientRecord.tsx         the live record card — sections + rows
     RecordRow.tsx             one label/value row + change highlight
     StatusBadge.tsx           five badge states + last-updated timestamp
-    PreviousSubmission.tsx    the sunken block after a session reset
 
 hooks/
-  usePatientSync.ts           sends events, answers staff joins with a snapshot
-  useStaffSync.ts             receives events, derives the badge and values
+  usePatientSync.ts           list Presence + session events
+  useStaffList.ts             staff list from Presence
+  useStaffSync.ts             one session channel — receive only
 
 lib/                          no React, no JSX
   supabase.ts                 the browser client
@@ -88,9 +91,10 @@ Four questions, in order. The first "yes" is the answer.
   except `app/**/page.tsx`, where Next.js requires one.
 - **Imports** use the `@/` alias from [tsconfig.json](../tsconfig.json) —
   `@/lib/intake-schema`, never `../../lib/intake-schema`.
-- **`"use client"` sits on the two client roots only** — `PatientIntake.tsx` and
-  `StaffLiveView.tsx`. Everything they render is client code already; repeating
-  the directive on each child adds noise and no meaning.
+- **`"use client"` sits on modules a server page imports** —
+  `PatientIntake.tsx`, `StaffWorkspace.tsx`, `StaffList.tsx`,
+  `StaffLiveView.tsx`, and the hooks. Children they render are already client
+  code; repeating the directive there adds noise and no meaning.
 - **Colours come from stock Tailwind names** (`emerald-400`, `zinc-50`, …).
   No custom `@theme` token layer to keep in sync with a second source of truth.
 
@@ -124,12 +128,3 @@ gets the tab titles for free and keeps the routing layer readable at a glance.
   function specifically so it is the one piece that could be tested later
   without any harness.
 
----
-
-## Files the spike leaves behind
-
-The current [app/patient/page.tsx](../app/patient/page.tsx) and
-[app/staff/page.tsx](../app/staff/page.tsx) are single-field proof of concept.
-They are replaced, not extended: `/patient` becomes a redirect, and the staff
-page becomes the server shell above. [lib/realtime.ts](../lib/realtime.ts) and
-[lib/supabase.ts](../lib/supabase.ts) survive as-is and grow.

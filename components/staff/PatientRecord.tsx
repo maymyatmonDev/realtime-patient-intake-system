@@ -21,12 +21,6 @@ export function PatientRecord({
 
   return (
     <div className="rounded-xl border border-zinc-200 border-t-emerald-600 bg-white p-4 md:p-8">
-      {badge === "disconnected" ? (
-        <p className="mb-6 text-sm text-zinc-500">
-          Patient disconnected — showing last known values.
-        </p>
-      ) : null}
-
       {SECTIONS.map((section) => (
         <section key={section.title} className="mb-8 last:mb-0">
           <h2 className="mb-2 flex items-center gap-2 text-lg font-semibold text-zinc-900">

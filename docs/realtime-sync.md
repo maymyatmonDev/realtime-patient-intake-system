@@ -1,13 +1,11 @@
 # Real-time Synchronisation
 
 This document defines the real-time contract between the patient form and the
-staff view: the channel, the Presence payload, the events, and the state each
+staff view: the channels, the Presence payloads, the events, and the state each
 side derives from them.
 
-It is written **before** implementation, because both clients have to agree on
-this contract and both are about to be built. Sections marked _deferred_ are
-mechanics that are easier to describe accurately once the system has been
-observed running, and will be filled in during implementation.
+It is the contract both clients are built against. Timings in Observed
+behaviour were confirmed by running the two views side by side.
 
 ---
 
@@ -34,13 +32,20 @@ No database table is involved. Nothing is stored.
 
 ## Channel model
 
-**One shared channel**, `intake-session`. The brief refers to "the patient form"
-in the singular, so both interfaces join the same channel and there is exactly
-one live intake at a time.
+Two layers, so concurrent patients do not blend into one record.
 
-Per-session channels (`intake-session:{id}`) would support multiple concurrent
-patients and are treated as an enhancement, not a core requirement. The channel
-name is defined in one place so that change stays cheap.
+**List** — one fixed channel, `intake-list`. Every active patient session
+tracks Presence here. The staff list at `/staff` is built from that Presence
+state alone: no broadcast events, and join/leave is free.
+
+**Session** — `intake-session:{sessionId}`. The existing `field-change` /
+`submit` / `session-reset` / `state-snapshot` contract, unchanged, scoped to
+one intake. `sessionId` is a `crypto.randomUUID()` created when the patient
+taps Begin intake. It lives in React state only; a refresh starts a new
+session.
+
+Staff subscribe to the list (no track) and to one session channel when they
+open `/staff/[sessionId]`. Staff still never broadcast on either channel.
 
 **Clients do not receive their own broadcasts.** The patient must not react to
 its own `field-change` events, and this is also what keeps the staff-join
@@ -48,9 +53,36 @@ detection below from firing on the patient's own join.
 
 ---
 
-## Presence
+## List Presence
 
-Every client tracks a Presence payload on subscribe:
+Tracked by the patient on `intake-list`, re-tracked on change (throttled ~1s):
+
+```ts
+const listPresenceSchema = z.object({
+  sessionId: z.string(),
+  displayName: z.string(), // "First Last", or "Unnamed intake"
+  filledCount: z.number(),
+  totalCount: z.number(),
+  status: z.enum(["filling", "idle", "submitted"]),
+  lastChangeAt: z.number().nullable(), // null until the first field-change
+  startedAt: z.number(),
+  values: z.record(z.string(), z.string()), // filled fields only; seeds the detail view
+});
+```
+
+`displayName` and the counts come from the patient's own form state, so the
+list never needs field-level broadcasts. Staff see who is present and how far
+along without joining a session channel.
+
+Submitted sessions stay in the list until the patient resets or disconnects.
+`lastChangeAt` is null until the first `field-change`, so a new row is
+**Connected**, not **Filling in**.
+
+---
+
+## Session Presence
+
+Every client on a session channel tracks a Presence payload on subscribe:
 
 ```ts
 const presenceSchema = z.object({
@@ -126,13 +158,16 @@ Sent when the patient taps **Start new intake**.
 }
 ```
 
-No payload beyond the timestamp — the staff view un-latches its badge and moves
-the current values to "Previous submission" (see flow 5).
+No payload beyond the timestamp. The patient leaves both channels. The list
+row disappears. A staff member already on the detail route keeps the record
+and sees "This intake has ended."
 
 ### `state-snapshot`
 
 Sent by the patient when a **staff** client joins, so a staff member opening
-`/staff` mid-intake does not see an empty record over a "Connected" badge.
+`/staff/[sessionId]` mid-intake does not see an empty record over a
+"Connected" badge. List Presence also carries filled `values` so the first
+paint can seed from the list.
 
 ```ts
 {
@@ -147,8 +182,9 @@ Sent by the patient when a **staff** client joins, so a staff member opening
 **Submitted** badge with frozen values, not **Connected**. Without this flag the
 snapshot would be indistinguishable from an in-progress intake.
 
-Debounced ~500ms, so several staff tabs opening at once produce one snapshot
-rather than one each.
+The first snapshot is sent as soon as staff is seen. Further snapshots are
+ignored for ~500ms, so several staff tabs opening at once still produce one
+payload.
 
 ---
 
@@ -205,9 +241,9 @@ patient joins            → staff badge: Waiting → Connected
 patient types            → field-change (×n)     → Filling in, values populate
 patient idles ~3s        → (no event)            → Connected
 patient submits          → submit                → Submitted, values freeze
-patient starts new       → session-reset         → Waiting, values move to
-                                                   "Previous submission"
-patient types            → field-change          → previous submission clears
+patient starts new       → session-reset         → leaves both channels
+                                                 → list row gone
+                                                 → open detail: ended banner
 ```
 
 **Staff joins mid-intake**
@@ -221,23 +257,23 @@ patient detects staff    → state-snapshot        → values populate at once
 **Patient refresh**
 
 ```text
-patient leaves           → presence leave        → Disconnected, values retained
-patient rejoins          → presence join         → Connected
-                         → field-change (empty)  → values clear as re-entered
+patient leaves           → presence leave        → old list row gone
+                                                 → open detail: ended banner
+patient rejoins          → new sessionId         → new list row, empty form
 ```
 
-Values visibly clearing here is accepted rather than worked around: patient-side
-persistence is an explicit non-goal.
+The old row disappearing from the list is accepted rather than worked around:
+patient-side persistence is an explicit non-goal.
 
 ---
 
 ## Observed behaviour
 
-- **Channel setup.** `createClient` lives in `lib/supabase.ts`. Each hook
-  creates one channel, subscribes, tracks Presence on `SUBSCRIBED`, and calls
-  `removeChannel` on unmount. The patient hook only does this while `active`
-  (after Begin intake). Broadcast is `{ self: false }` so a client never
-  handles its own events.
+- **Channel setup.** `createClient` lives in `lib/supabase.ts`. The patient
+  hook joins list + session while `active` (after Begin intake). Staff
+  subscribe to the list always, and to one session when a row is open or
+  prefetched. Broadcast is `{ self: false }` so a client never handles its
+  own events.
 - **Timings.** Kept at 250ms per-field debounce, 500ms snapshot debounce, and
   3s Filling-in decay after watching both views side by side.
 - **Reconnection.** Any subscribe status other than `SUBSCRIBED` shows the
